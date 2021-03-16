@@ -67,6 +67,7 @@ const u8 random_markers[RANDOM_MARKER_COUNT] = {
 static Memory memory;
 //static Pattern patterns[PATTERN_COUNT];
 static u8 c_pattern = 0;
+static u8 c_pattern_group = 0;
 
 static u8 warning_level = 0;
 static u8 warning_blink = 0;
@@ -355,15 +356,15 @@ void draw_function_button(u8 button_index) {
 			}
 			draw_by_index(button_index, c);
 			break;
-		case SONG_BUTTON:
-			draw_by_index(button_index, song_on ? PERF_BUTTON_ON_COLOR : SONG_BUTTON_COLOR);
-			break;
-		case SHUFFLE_BUTTON:
-			draw_by_index(button_index, shuffle_on ? PERF_BUTTON_ON_COLOR : SHUFFLE_BUTTON_COLOR);
-			break;
-		case FILL_BUTTON:
-			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
-			break;
+//		case SONG_BUTTON:
+//			draw_by_index(button_index, song_on ? PERF_BUTTON_ON_COLOR : SONG_BUTTON_COLOR);
+//			break;
+//		case SHUFFLE_BUTTON:
+//			draw_by_index(button_index, shuffle_on ? PERF_BUTTON_ON_COLOR : SHUFFLE_BUTTON_COLOR);
+//			break;
+//		case FILL_BUTTON:
+//			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
+//			break;
 		case WATER_BUTTON:
 			draw_by_index(button_index, WATER_BUTTON_COLOR);
 			break;
@@ -421,15 +422,22 @@ void draw_settings() {
 	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : DARK_GRAY);
 
 	// patterns
-	for (int column = 0; column < COLUMN_COUNT; column++) {
-		draw_pad(SETTINGS_PATTERN_ROW, column, column == c_pattern ? PATTERN_SELECTED_COLOR : PATTERN_COLOR);
+	for (int column = 0; column < 4; column++) {
+		draw_pad(SETTINGS_PATTERN_ROW, column, column == c_pattern ? PATTERN_SELECTED_COLOR_1 : PATTERN_COLOR_1);
+	}
+	for (int column = 4; column < COLUMN_COUNT; column++) {
+		draw_pad(SETTINGS_PATTERN_ROW, column, column == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
 	}
 }
 
 void draw_patterns() {
 	for (int offset = PATTERNS_OFFSET_LO; offset <= PATTERNS_OFFSET_HI; offset++) {
 		u8 p = offset - PATTERNS_OFFSET_LO;
-		draw_button(PATTERNS_GROUP, offset, p == c_pattern ? PATTERN_SELECTED_COLOR : PATTERN_COLOR);
+		if (c_pattern_group == 0) {
+			draw_button(PATTERNS_GROUP, offset, p == c_pattern ? PATTERN_SELECTED_COLOR_1 : PATTERN_COLOR_1);
+		} else {
+			draw_button(PATTERNS_GROUP, offset, (p + 4) == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
+		}
 	}
 }
 
@@ -634,6 +642,7 @@ void load_settings() {
 
 void change_pattern(u8 p_index) {
 	c_pattern = p_index;
+	c_pattern_group = c_pattern / 4;
 	c_stage = c_extend = c_repeat = 0;
 	clear_stages();
 	load_stages();
@@ -655,6 +664,7 @@ void on_settings(u8 index, u8 row, u8 column, u8 value) {
 		} else if (row == SETTINGS_PATTERN_ROW) {
 			change_pattern(column);
 			draw_settings();
+			draw_patterns();
 
 		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_AUTO_LOAD_COLUMN) {
 			memory.settings.auto_load = !memory.settings.auto_load;
@@ -799,7 +809,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 
 
 	} else if (group == PATTERNS_GROUP && offset >= PATTERNS_OFFSET_LO && offset <= PATTERNS_OFFSET_HI) {
-		change_pattern(offset - PATTERNS_OFFSET_LO);
+		change_pattern(offset - PATTERNS_OFFSET_LO + c_pattern_group * 4);
 		draw_pads();
 		draw_patterns();
 
