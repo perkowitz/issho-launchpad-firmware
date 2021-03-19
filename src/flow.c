@@ -711,7 +711,16 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
  */
 void on_button(u8 index, u8 group, u8 offset, u8 value) {
 	if (index == PLAY_BUTTON) {
-		// only external midi clock for now
+		if (value && clock == INTERNAL || !is_running) {
+			is_running = !is_running;
+			if (is_running) {
+				clock = INTERNAL;
+				c_measure = c_beat = c_tick = c_stage = 0;
+			} else {
+				note_off();
+			}
+			draw_function_button(PLAY_BUTTON);
+		}
 
 	} else if (index == PANIC_BUTTON) {
 		if (value) {
@@ -905,7 +914,6 @@ void tick() {
 
 
 	if (!is_running) {
-//		note_off();
 		return;
 	}
 
@@ -1158,34 +1166,31 @@ void app_surface_event(u8 type, u8 index, u8 value)
 
 void app_midi_event(u8 port, u8 status, u8 d1, u8 d2)
 {
-//	static int ticky = 0;
 
 	switch (status) {
 
 		case MIDISTART:
 			is_running = true;
+			clock = EXTERNAL;
 			c_measure = c_beat = c_tick = c_stage = 0;
-//			ticky = 0;
-			plot_led(TYPEPAD, PLAY_BUTTON, palette[WHITE]);
+			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDISTOP:
 			is_running = false;
+			clock = INTERNAL;
 			note_off();
-			plot_led(TYPEPAD, PLAY_BUTTON, palette[DARK_GRAY]);
+			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDICONTINUE:
 			is_running = true;
-			plot_led(TYPEPAD, PLAY_BUTTON, palette[WHITE]);
+			clock = EXTERNAL;
+			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDITIMINGCLOCK:
-			if (is_running) {
-//				int tocky = (ticky + 88) % 96;
-//				plot_led(TYPEPAD, ticky, palette[WHITE]);
-//				plot_led(TYPEPAD, tocky, palette[BLACK]);
-//				ticky = (ticky + 1) % 96;
+			if (is_running && clock == EXTERNAL) {
 				tick();
 			}
 			break;
@@ -1244,18 +1249,18 @@ void app_cable_event(u8 type, u8 value)
 
 void app_timer_event()
 {
-	#define PULSE_INTERVAL 250
+	#define TICK_INTERVAL 20
 	#define BLINK_INTERVAL 125
 
     static int tick_count = 0;
-	static int pulse_timer = PULSE_INTERVAL;
+	static int tick_timer = TICK_INTERVAL;
 	static int blink_timer = BLINK_INTERVAL;
     
-    if (clock == INTERNAL && pulse_timer >= PULSE_INTERVAL) {
-    	pulse_timer = 0;
-    	pulse();
+    if (clock == INTERNAL && is_running && tick_timer >= TICK_INTERVAL) {
+    	tick_timer = 0;
+    	tick();
     } else {
-    	pulse_timer++;
+    	tick_timer++;
     }
     
     if (blink_timer >= BLINK_INTERVAL) {
