@@ -711,7 +711,7 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
  */
 void on_button(u8 index, u8 group, u8 offset, u8 value) {
 	if (index == PLAY_BUTTON) {
-		if (value && clock == INTERNAL || !is_running) {
+		if (value && (clock == INTERNAL || !is_running)) {
 			is_running = !is_running;
 			if (is_running) {
 				clock = INTERNAL;
@@ -719,8 +719,8 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			} else {
 				note_off();
 			}
-			draw_function_button(PLAY_BUTTON);
 		}
+		draw_function_button(PLAY_BUTTON);
 
 	} else if (index == PANIC_BUTTON) {
 		if (value) {
@@ -762,12 +762,6 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			clear();
 		} else {
 			draw_by_index(CLEAR_BUTTON, BUTTON_OFF_COLOR);
-		}
-
-	} else if (index == TIMER_BUTTON) {
-		if (value) {
-			is_playing = !is_playing;
-			draw_function_button(TIMER_BUTTON);
 		}
 
 	} else if (index == SONG_BUTTON) {
@@ -1030,54 +1024,6 @@ void tick() {
 		c_measure++;
 	}
 
-}
-
-// pulse is called for every internal pulse, 24 times per quarter note.
-void pulse() {
-
-	static int pulse_count = 0;
-
-	if (!is_playing) {
-		return;
-	}
-
-    int last = (pulse_count + 7) % 8;
-    plot_led(TYPEPAD, 91 + last, palette[BLACK]);
-    plot_led(TYPEPAD, 91 + pulse_count, palette[RED]);
-
-    Stage current = stages[pulse_count];
-
-    // if it's a tie, do nothing
-    // if it's legato, send previous note off after new note on
-    // otherwise, send previous note off first
-	if (current.tie <= 0) {
-		if (current.legato <= 0) {
-			note_off();
-		}
-
-		u8 previous_note = current_note;
-		if (current.note_count > 0 && current.note != OUT_OF_RANGE) {
-			u8 n = get_note(current);
-			hal_send_midi(USBMIDI, NOTEON | memory.settings.midi_channel, n, get_velocity(current));
-			current_note = n;
-		}
-
-		if (current.legato > 0) {
-			if (previous_note != OUT_OF_RANGE) {
-				hal_send_midi(USBMIDI, NOTEOFF | memory.settings.midi_channel, previous_note, 0);
-			}
-		}
-	}
-
-	debug(1, current.note_count > 0 ? NOTE_MARKER : OFF_MARKER);
-	debug(2, current.octave > 0 ? OCTAVE_UP_MARKER : OFF_MARKER);
-	debug(2, current.octave < 0 ? OCTAVE_DOWN_MARKER : OUT_OF_RANGE);
-	debug(3, current.velocity > 0 ? VELOCITY_UP_MARKER : OFF_MARKER);
-	debug(3, current.velocity < 0 ? VELOCITY_DOWN_MARKER : OUT_OF_RANGE);
-	debug(4, current.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
-	debug(4, current.tie > 0 ? TIE_MARKER : OUT_OF_RANGE);
-
-	pulse_count = (pulse_count + 1) % 8;
 }
 
 void blink() {

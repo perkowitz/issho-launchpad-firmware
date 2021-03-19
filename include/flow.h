@@ -75,10 +75,9 @@
 #define WATER_BUTTON_COLOR SKY_BLUE
 
 // elements
-#define PLAY_BUTTON 91
+#define PLAY_BUTTON 95
 #define PANIC_BUTTON 92
 #define SETTINGS_BUTTON 93
-#define TIMER_BUTTON 95
 #define RESET_BUTTON 40
 #define SONG_BUTTON 30
 #define SHUFFLE_BUTTON 20
