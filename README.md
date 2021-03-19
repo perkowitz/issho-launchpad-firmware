@@ -13,3 +13,11 @@ download the sysex file in the release. The release manual includes installation
 **FLOW** is an 8-stage sequencer. Each stage can play different notes, be of different duration, and repeat itself multiple times. All of these effects are created by placing "markers" on the stage. Markers include specifying notes, sharps/flats, octave up/down, extended duration, repeats, and so on.
 
 With multiple extends and repeats, sequences can be of irregular lengths, with complex, shifting rhythms. The sequence can be free running or regularly reset to provide more predictability.
+
+## Releases
+
+[v0.1: initial version of FLOW](https://github.com/perkowitz/issho-launchpad-firmware/releases/tag/v0.1)
+- Implements basic features of FLOW sequencer
+- Missing some performance features, pattern copy, some pattern modifiers
+- Release includes sysex file to load firmware and a full PDF manual
+
