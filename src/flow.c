@@ -67,6 +67,7 @@ const u8 random_markers[RANDOM_MARKER_COUNT] = {
 static Memory memory;
 //static Pattern patterns[PATTERN_COUNT];
 static u8 c_pattern = 0;
+static u8 c_pattern_group = 0;
 
 static u8 warning_level = 0;
 static u8 warning_blink = 0;
@@ -355,15 +356,15 @@ void draw_function_button(u8 button_index) {
 			}
 			draw_by_index(button_index, c);
 			break;
-		case SONG_BUTTON:
-			draw_by_index(button_index, song_on ? PERF_BUTTON_ON_COLOR : SONG_BUTTON_COLOR);
-			break;
-		case SHUFFLE_BUTTON:
-			draw_by_index(button_index, shuffle_on ? PERF_BUTTON_ON_COLOR : SHUFFLE_BUTTON_COLOR);
-			break;
-		case FILL_BUTTON:
-			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
-			break;
+//		case SONG_BUTTON:
+//			draw_by_index(button_index, song_on ? PERF_BUTTON_ON_COLOR : SONG_BUTTON_COLOR);
+//			break;
+//		case SHUFFLE_BUTTON:
+//			draw_by_index(button_index, shuffle_on ? PERF_BUTTON_ON_COLOR : SHUFFLE_BUTTON_COLOR);
+//			break;
+//		case FILL_BUTTON:
+//			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
+//			break;
 		case WATER_BUTTON:
 			draw_by_index(button_index, WATER_BUTTON_COLOR);
 			break;
@@ -421,15 +422,22 @@ void draw_settings() {
 	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : DARK_GRAY);
 
 	// patterns
-	for (int column = 0; column < COLUMN_COUNT; column++) {
-		draw_pad(SETTINGS_PATTERN_ROW, column, column == c_pattern ? PATTERN_SELECTED_COLOR : PATTERN_COLOR);
+	for (int column = 0; column < 4; column++) {
+		draw_pad(SETTINGS_PATTERN_ROW, column, column == c_pattern ? PATTERN_SELECTED_COLOR_1 : PATTERN_COLOR_1);
+	}
+	for (int column = 4; column < COLUMN_COUNT; column++) {
+		draw_pad(SETTINGS_PATTERN_ROW, column, column == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
 	}
 }
 
 void draw_patterns() {
 	for (int offset = PATTERNS_OFFSET_LO; offset <= PATTERNS_OFFSET_HI; offset++) {
 		u8 p = offset - PATTERNS_OFFSET_LO;
-		draw_button(PATTERNS_GROUP, offset, p == c_pattern ? PATTERN_SELECTED_COLOR : PATTERN_COLOR);
+		if (c_pattern_group == 0) {
+			draw_button(PATTERNS_GROUP, offset, p == c_pattern ? PATTERN_SELECTED_COLOR_1 : PATTERN_COLOR_1);
+		} else {
+			draw_button(PATTERNS_GROUP, offset, (p + 4) == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
+		}
 	}
 }
 
@@ -634,6 +642,7 @@ void load_settings() {
 
 void change_pattern(u8 p_index) {
 	c_pattern = p_index;
+	c_pattern_group = c_pattern / 4;
 	c_stage = c_extend = c_repeat = 0;
 	clear_stages();
 	load_stages();
@@ -655,6 +664,7 @@ void on_settings(u8 index, u8 row, u8 column, u8 value) {
 		} else if (row == SETTINGS_PATTERN_ROW) {
 			change_pattern(column);
 			draw_settings();
+			draw_patterns();
 
 		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_AUTO_LOAD_COLUMN) {
 			memory.settings.auto_load = !memory.settings.auto_load;
@@ -701,7 +711,16 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
  */
 void on_button(u8 index, u8 group, u8 offset, u8 value) {
 	if (index == PLAY_BUTTON) {
-		// only external midi clock for now
+		if (value && (clock == INTERNAL || !is_running)) {
+			is_running = !is_running;
+			if (is_running) {
+				clock = INTERNAL;
+				c_measure = c_beat = c_tick = c_stage = 0;
+			} else {
+				note_off();
+			}
+		}
+		draw_function_button(PLAY_BUTTON);
 
 	} else if (index == PANIC_BUTTON) {
 		if (value) {
@@ -743,12 +762,6 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			clear();
 		} else {
 			draw_by_index(CLEAR_BUTTON, BUTTON_OFF_COLOR);
-		}
-
-	} else if (index == TIMER_BUTTON) {
-		if (value) {
-			is_playing = !is_playing;
-			draw_function_button(TIMER_BUTTON);
 		}
 
 	} else if (index == SONG_BUTTON) {
@@ -799,7 +812,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 
 
 	} else if (group == PATTERNS_GROUP && offset >= PATTERNS_OFFSET_LO && offset <= PATTERNS_OFFSET_HI) {
-		change_pattern(offset - PATTERNS_OFFSET_LO);
+		change_pattern(offset - PATTERNS_OFFSET_LO + c_pattern_group * 4);
 		draw_pads();
 		draw_patterns();
 
@@ -895,7 +908,6 @@ void tick() {
 
 
 	if (!is_running) {
-//		note_off();
 		return;
 	}
 
@@ -1014,54 +1026,6 @@ void tick() {
 
 }
 
-// pulse is called for every internal pulse, 24 times per quarter note.
-void pulse() {
-
-	static int pulse_count = 0;
-
-	if (!is_playing) {
-		return;
-	}
-
-    int last = (pulse_count + 7) % 8;
-    plot_led(TYPEPAD, 91 + last, palette[BLACK]);
-    plot_led(TYPEPAD, 91 + pulse_count, palette[RED]);
-
-    Stage current = stages[pulse_count];
-
-    // if it's a tie, do nothing
-    // if it's legato, send previous note off after new note on
-    // otherwise, send previous note off first
-	if (current.tie <= 0) {
-		if (current.legato <= 0) {
-			note_off();
-		}
-
-		u8 previous_note = current_note;
-		if (current.note_count > 0 && current.note != OUT_OF_RANGE) {
-			u8 n = get_note(current);
-			hal_send_midi(USBMIDI, NOTEON | memory.settings.midi_channel, n, get_velocity(current));
-			current_note = n;
-		}
-
-		if (current.legato > 0) {
-			if (previous_note != OUT_OF_RANGE) {
-				hal_send_midi(USBMIDI, NOTEOFF | memory.settings.midi_channel, previous_note, 0);
-			}
-		}
-	}
-
-	debug(1, current.note_count > 0 ? NOTE_MARKER : OFF_MARKER);
-	debug(2, current.octave > 0 ? OCTAVE_UP_MARKER : OFF_MARKER);
-	debug(2, current.octave < 0 ? OCTAVE_DOWN_MARKER : OUT_OF_RANGE);
-	debug(3, current.velocity > 0 ? VELOCITY_UP_MARKER : OFF_MARKER);
-	debug(3, current.velocity < 0 ? VELOCITY_DOWN_MARKER : OUT_OF_RANGE);
-	debug(4, current.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
-	debug(4, current.tie > 0 ? TIE_MARKER : OUT_OF_RANGE);
-
-	pulse_count = (pulse_count + 1) % 8;
-}
-
 void blink() {
 
 	static u8 blink = 0;
@@ -1148,34 +1112,31 @@ void app_surface_event(u8 type, u8 index, u8 value)
 
 void app_midi_event(u8 port, u8 status, u8 d1, u8 d2)
 {
-//	static int ticky = 0;
 
 	switch (status) {
 
 		case MIDISTART:
 			is_running = true;
+			clock = EXTERNAL;
 			c_measure = c_beat = c_tick = c_stage = 0;
-//			ticky = 0;
-			plot_led(TYPEPAD, PLAY_BUTTON, palette[WHITE]);
+			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDISTOP:
 			is_running = false;
+			clock = INTERNAL;
 			note_off();
-			plot_led(TYPEPAD, PLAY_BUTTON, palette[DARK_GRAY]);
+			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDICONTINUE:
 			is_running = true;
-			plot_led(TYPEPAD, PLAY_BUTTON, palette[WHITE]);
+			clock = EXTERNAL;
+			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDITIMINGCLOCK:
-			if (is_running) {
-//				int tocky = (ticky + 88) % 96;
-//				plot_led(TYPEPAD, ticky, palette[WHITE]);
-//				plot_led(TYPEPAD, tocky, palette[BLACK]);
-//				ticky = (ticky + 1) % 96;
+			if (is_running && clock == EXTERNAL) {
 				tick();
 			}
 			break;
@@ -1234,18 +1195,18 @@ void app_cable_event(u8 type, u8 value)
 
 void app_timer_event()
 {
-	#define PULSE_INTERVAL 250
+	#define TICK_INTERVAL 20
 	#define BLINK_INTERVAL 125
 
     static int tick_count = 0;
-	static int pulse_timer = PULSE_INTERVAL;
+	static int tick_timer = TICK_INTERVAL;
 	static int blink_timer = BLINK_INTERVAL;
     
-    if (clock == INTERNAL && pulse_timer >= PULSE_INTERVAL) {
-    	pulse_timer = 0;
-    	pulse();
+    if (clock == INTERNAL && is_running && tick_timer >= TICK_INTERVAL) {
+    	tick_timer = 0;
+    	tick();
     } else {
-    	pulse_timer++;
+    	tick_timer++;
     }
     
     if (blink_timer >= BLINK_INTERVAL) {
