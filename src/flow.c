@@ -43,6 +43,8 @@
 #include <string.h>
 
 
+//#define DEBUG 1
+
 /***** global variables *****/
 static const u16 *g_ADC = 0;   // ADC frame pointer
 static u8 hw_buttons[BUTTON_COUNT] = {0};
@@ -133,13 +135,13 @@ void warning(u8 level) {
     warning_blink = 0;
 }
 
-#define DEBUG true
+#ifdef DEBUG
 void debug(u8 index, u8 level) {
-	if (DEBUG && level != OUT_OF_RANGE) {
+	if (level != OUT_OF_RANGE) {
 		plot_led(TYPEPAD, (index + 1) * 10 + 9, palette[level]);
 	}
 }
-
+#endif
 
 /***** midi *****/
 
@@ -831,12 +833,10 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			u8 new_pattern = offset - PATTERNS_OFFSET_LO + c_pattern_group * 4;
 			if (index == pressed_button_index && app_clock - pressed_button_time >= LONG_PRESS_MILLIS) {
 				copy_pattern(c_pattern, new_pattern);
-				debug(0, PURPLE);
 			} else {
 				// change pattern on release
 				change_pattern(new_pattern);
 				draw_pads();
-				debug(0, RED);
 			}
 			draw_patterns();
 		}
@@ -1008,17 +1008,19 @@ void tick() {
 			}
 		}
 
-		// echo the current step activity on the left buttons
-//		debug(1, stage.note_count > 0 ? NOTE_MARKER : OFF_MARKER);
-//		debug(1, stage.accidental > 0 ? SHARP_MARKER : OUT_OF_RANGE);
-//		debug(1, stage.accidental < 0 ? FLAT_MARKER : OUT_OF_RANGE);
-//		debug(1, stage.tie > 0 ? TIE_MARKER : OUT_OF_RANGE);
-//		debug(2, stage.octave > 0 ? OCTAVE_UP_MARKER : OFF_MARKER);
-//		debug(2, stage.octave < 0 ? OCTAVE_DOWN_MARKER : OUT_OF_RANGE);
-//		debug(3, stage.velocity > 0 ? VELOCITY_UP_MARKER : OFF_MARKER);
-//		debug(3, stage.velocity < 0 ? VELOCITY_DOWN_MARKER : OUT_OF_RANGE);
-//		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
-//		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
+#ifdef DEBUG
+		// echo the current step activity on the debug buttons
+		debug(1, stage.note_count > 0 ? NOTE_MARKER : OFF_MARKER);
+		debug(1, stage.accidental > 0 ? SHARP_MARKER : OUT_OF_RANGE);
+		debug(1, stage.accidental < 0 ? FLAT_MARKER : OUT_OF_RANGE);
+		debug(1, stage.tie > 0 ? TIE_MARKER : OUT_OF_RANGE);
+		debug(2, stage.octave > 0 ? OCTAVE_UP_MARKER : OFF_MARKER);
+		debug(2, stage.octave < 0 ? OCTAVE_DOWN_MARKER : OUT_OF_RANGE);
+		debug(3, stage.velocity > 0 ? VELOCITY_UP_MARKER : OFF_MARKER);
+		debug(3, stage.velocity < 0 ? VELOCITY_DOWN_MARKER : OUT_OF_RANGE);
+		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
+		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
+#endif
 
 		// now increment current extension
 		// if that would exceed the stage's extension count, increment the repeats count
