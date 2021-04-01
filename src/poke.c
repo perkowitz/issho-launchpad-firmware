@@ -36,7 +36,7 @@
 //______________________________________________________________________________
 
 #include "app.h"
-#include "game.h"
+#include "poke.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -609,7 +609,7 @@ void app_init(const u16 *adc_raw)
 	tick_timer = interval_millis;
 	stage = START;
 	stage_clock = 0;
-	mode = TWO_PLAYER_HALF;
+	mode = TWO_PLAYER_ALL;
 	draw();
 
 	g_ADC = adc_raw;

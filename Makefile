@@ -29,11 +29,11 @@ LDFLAGS += -T$(LDSCRIPT) -u _start -u _Minimum_Stack_Size  -mcpu=cortex-m3 -mthu
 .SECONDARY: $(wildcard *.elf) $(wildcard *.hex)
 
 
-all: flow game
+all: flow poke
 
 flow: $(OUTPUT_PREFIX)flow.syx
 
-game: $(OUTPUT_PREFIX)game.syx
+poke: $(OUTPUT_PREFIX)poke.syx
 
 
 
