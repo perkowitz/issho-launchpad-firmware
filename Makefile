@@ -1,23 +1,15 @@
 BUILDDIR = build
 
-TOOLS = tools
-
-SOURCES += src/flow.c
-
 INCLUDES += -Iinclude -I
 
 LIB = lib/launchpad_pro.a
 
-OBJECTS = $(addprefix $(BUILDDIR)/, $(addsuffix .o, $(basename $(SOURCES))))
-
-# output files
-SYX = $(BUILDDIR)/issho_launchpad_flow.syx
-ELF = $(BUILDDIR)/issho_launchpad_flow.elf
-HEX = $(BUILDDIR)/issho_launchpad_flow.hex
-HEXTOSYX = $(BUILDDIR)/hextosyx
-SIMULATOR = $(BUILDDIR)/simulator
+OUTPUT_PREFIX = $(BUILDDIR)/issho_launchpad_
 
 # tools
+TOOLS = tools
+HEXTOSYX = $(BUILDDIR)/hextosyx
+SIMULATOR = $(BUILDDIR)/simulator
 HOST_GPP = g++
 HOST_GCC = gcc
 CC = arm-none-eabi-gcc
@@ -34,34 +26,44 @@ LDSCRIPT = stm32_flash.ld
 
 LDFLAGS += -T$(LDSCRIPT) -u _start -u _Minimum_Stack_Size  -mcpu=cortex-m3 -mthumb -specs=nano.specs -specs=nosys.specs -nostdlib -Wl,-static -N -nostartfiles -Wl,--gc-sections
 
-all: $(SYX)
+.SECONDARY: $(wildcard *.elf) $(wildcard *.hex)
 
-# build the final sysex file from the ELF - run the simulator first
-$(SYX): $(HEX) $(HEXTOSYX) $(SIMULATOR)
-	./$(SIMULATOR)
-	./$(HEXTOSYX) $(HEX) $(SYX)
+
+all: flow game
+
+flow: $(OUTPUT_PREFIX)flow.syx
+
+game: $(OUTPUT_PREFIX)game.syx
+
+
 
 # build the tool for conversion of ELF files to sysex, ready for upload to the unit
 $(HEXTOSYX):
 	$(HOST_GPP) -Ofast -std=c++0x -I./$(TOOLS)/libintelhex/include ./$(TOOLS)/libintelhex/src/intelhex.cc $(TOOLS)/hextosyx.cpp -o $(HEXTOSYX)
 
-# build the simulator (it's a very basic test of the code before it runs on the device!)
-$(SIMULATOR):
-	$(HOST_GCC) -g3 -O0 -std=c99 -Iinclude $(TOOLS)/simulator.c $(SOURCES) -o $(SIMULATOR)
+# simulate a source
+$(BUILDDIR)/%.simulator: src/%.c
+	$(HOST_GCC) -g3 -O0 -std=c99 -Iinclude $(TOOLS)/simulator.c $< -o $@
+	$@
 
-$(HEX): $(ELF)
+# build a .syx from a .hex
+$(OUTPUT_PREFIX)%.syx: $(OUTPUT_PREFIX)%.hex $(HEXTOSYX) $(BUILDDIR)/%.simulator	
+	./$(HEXTOSYX) $< $@
+
+# build a .hex from a .elf
+%.hex: %.elf
 	$(OBJCOPY) -O ihex $< $@
 
-$(ELF): $(OBJECTS)
-	$(LD) $(LDFLAGS) -o $@ $(OBJECTS) $(LIB)
+# build a .elf file from a .o
+$(OUTPUT_PREFIX)%.elf: $(BUILDDIR)/src/%.o
+	$(LD) $(LDFLAGS) -o $@ $< $(LIB)
 
-DEPENDS := $(OBJECTS:.o=.d)
-
--include $(DEPENDS)
-
+# build a .o from a .c
 $(BUILDDIR)/%.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) -MMD -o $@ $<
+
+
 
 clean:
 	rm -rf $(BUILDDIR)

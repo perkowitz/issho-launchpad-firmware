@@ -12,7 +12,7 @@
 #define APP_VERSION 1
 #define OUT_OF_RANGE 255
 #define LONG_PRESS_MILLIS 2000
-#define TICK_INTERVAL 20
+#define TICK_INTERVAL 125
 #define BLINK_INTERVAL 125
 
 // button groups
@@ -25,6 +25,15 @@
 
 // elements
 #define PLAY_BUTTON 91
+
+// game stages
+#define START 0
+#define PLAYING 1
+#define SCORING 2
+
+// game modes
+#define TWO_PLAYER_ALL 0
+#define TWO_PLAYER_HALF 1
 
 
 /***** colors *****/
@@ -64,4 +73,22 @@ typedef struct Color {
 #define PINK 21
 #define DIM_PINK 22
 
+
+/***** function declarations *****/
+
+// buttons
+bool is_button(u8 group, u8 offset);
+u8 button_index(u8 group, u8 offset);
+
+// pads
+u8 pad_index(u8 row, u8 column);
+bool is_pad(u8 row, u8 column);
+
+// drawing
+void plot_button(u8 group, u8 offset, u8 c);
+
+
+
+
 #endif
+

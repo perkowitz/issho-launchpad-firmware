@@ -51,6 +51,33 @@ static u8 hw_buttons[BUTTON_COUNT] = {0};
 static Color palette[PSIZE];
 static u8 rainbow[8];
 
+static int interval_millis = 1000;
+static int tick_count = 0;
+static int tick_timer = 0;
+static int blink_timer = BLINK_INTERVAL;
+
+static u8 warning_level = 0;
+static u8 warning_blink = 0;
+
+static bool in_settings = false;
+u8 grid[ROW_COUNT][COLUMN_COUNT];
+
+static u8 p1_color = SKY_BLUE;
+static u8 p1_color2 = BLUE;
+static u8 p2_color = GREEN;
+static u8 p2_color2 = DIM_GREEN;
+static u8 p1_score = 0;
+static u8 p2_score = 0;
+static u8 p1_row = OUT_OF_RANGE;
+static u8 p1_col = OUT_OF_RANGE;
+static u8 p2_row = OUT_OF_RANGE;
+static u8 p2_col = OUT_OF_RANGE;
+
+static u8 stage = START;
+static u8 stage_clock = 0;
+static u8 mode = TWO_PLAYER_ALL;
+
+
 /***** helper functions *****/
 
 /**
@@ -206,28 +233,81 @@ u8 get_button(u8 group, u8 offset) {
 }
 
 
-/***** draw *****/
+/***** grid *****/
 
-void clear_pads() {
+void clear_grid(bool andDraw) {
 	for (int row = 0; row < ROW_COUNT; row++) {
 		for (int column = 0; column < COLUMN_COUNT; column++) {
-			draw_pad(row, column, BLACK);
+			grid[row][column] = BLACK;
+			if (andDraw) {
+				draw_pad(row, column, BLACK);
+			}
 		}
 	}
 }
 
+void set_grid(u8 row, u8 col, u8 color, bool andDraw) {
+	if (row >= 0 && row < ROW_COUNT && col >= 0 && col < COLUMN_COUNT) {
+		grid[row][col] = color;
+		if (andDraw) {
+			draw_pad(row, col, color);
+		}
+	}
+}
+
+u8 get_grid(u8 row, u8 col) {
+	if (row >= 0 && row < ROW_COUNT && col >= 0 && col < COLUMN_COUNT) {
+		return grid[row][col];
+	}
+	return OUT_OF_RANGE;
+}
+
+
+
+/***** draw *****/
+
+void color_pads(u8 color) {
+	for (int row = 0; row < ROW_COUNT; row++) {
+		for (int column = 0; column < COLUMN_COUNT; column++) {
+			draw_pad(row, column, color);
+		}
+	}
+}
+
+void clear_pads() {
+	color_pads(BLACK);
+}
+
+void draw_buttons(u8 group, u8 color) {
+	for (u8 offset = 0; offset < 8; offset++) {
+		draw_button(group, offset, color);
+	}
+}
+
 void draw_function_button(u8 button_index) {
-	u8 c;
 
 	switch (button_index) {
 		case PLAY_BUTTON:
-			draw_by_index(button_index, WHITE);
+//			draw_by_index(button_index, WHITE);
 			break;
 	}
 }
 
 void draw_function_buttons() {
 	draw_function_button(PLAY_BUTTON);
+}
+
+void draw_scores() {
+	draw_button(LEFT, (p1_score - 1) % 8, p1_color);
+	draw_button(RIGHT, (p2_score - 1) % 8, p2_color);
+}
+
+void draw_win(u8 color) {
+	color_pads(color);
+	p1_score = p2_score = 0;
+	interval_millis *= 0.9;
+	stage_clock = 0;
+	stage = START;
 }
 
 void draw_pads() {
@@ -246,6 +326,28 @@ void draw() {
 	draw_pads();
 }
 
+void random_pads() {
+	switch (mode) {
+	case TWO_PLAYER_ALL:
+		p1_row = rand() % ROW_COUNT;
+		p1_col = rand() % COLUMN_COUNT;
+		p2_row = rand() % ROW_COUNT;
+		p2_col = rand() % COLUMN_COUNT;
+		while (p1_row == p2_row && p1_col == p2_col) {
+			p2_col = rand() % COLUMN_COUNT;
+		}
+		break;
+
+	case TWO_PLAYER_HALF:
+		p1_row = rand() % 4;
+		p1_col = rand() % COLUMN_COUNT;
+		p2_row = rand() % 4 + 4;
+		p2_col = rand() % COLUMN_COUNT;
+		break;
+	}
+
+}
+
 
 /***** handlers *****/
 
@@ -262,6 +364,23 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 	}
 
 	if (value) {
+		if (row == p1_row && column == p1_col) {
+			set_grid(row, column, p1_color2, true);
+			p1_score++;
+			draw_scores();
+			if (p1_score >= 8) {
+				draw_win(p1_color);
+			}
+		} else if (row == p2_row && column == p2_col) {
+			set_grid(row, column, p2_color2, true);
+			p2_score++;
+			draw_scores();
+			if (p2_score >= 8) {
+				draw_win(p2_color);
+			}
+		}
+
+
 	}
 }
 
@@ -284,6 +403,37 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
  */
 void tick() {
 
+	switch (stage) {
+
+	case START:
+		if (stage_clock >= 4) {
+			stage_clock = 0;
+			clear_pads();
+			draw_buttons(LEFT, BLACK);
+			draw_buttons(RIGHT, BLACK);
+			stage = PLAYING;
+		} else {
+			stage_clock++;
+		}
+		break;
+
+	case PLAYING:
+		if (get_grid(p1_row, p1_col) != p1_color2) {
+			set_grid(p1_row, p1_col, BLACK, true);
+		}
+		if (get_grid(p2_row, p2_col) != p2_color2) {
+			set_grid(p2_row, p2_col, BLACK, true);
+		}
+		p1_row = p1_col = p2_row = p2_col = OUT_OF_RANGE;
+
+		random_pads();
+
+		set_grid(p1_row, p1_col, p1_color, true);
+		set_grid(p2_row, p2_col, p2_color, true);
+		break;
+
+	}
+
 }
 
 void blink() {
@@ -291,7 +441,7 @@ void blink() {
 	static u8 blink = 0;
 
 	if (blink == 0) {
-	} else {		draw_button(MARKER_GROUP, current_marker_index, BLACK);
+	} else {
 	}
 
 	blink = 1 - blink;
@@ -326,7 +476,6 @@ void app_surface_event(u8 type, u8 index, u8 value)
         case TYPESETUP:
         {
             if (value) {
-            	save();
             }
         }
         break;
@@ -389,12 +538,8 @@ void app_cable_event(u8 type, u8 value)
 
 void app_timer_event()
 {
-
-    static int tick_count = 0;
-	static int tick_timer = TICK_INTERVAL;
-	static int blink_timer = BLINK_INTERVAL;
     
-    if (tick_timer >= TICK_INTERVAL) {
+    if (tick_timer >= interval_millis) {
     	tick_timer = 0;
     	tick();
     } else {
@@ -461,6 +606,10 @@ void app_init(const u16 *adc_raw)
 	colors_init();
 	warning(SKY_BLUE);
 
+	tick_timer = interval_millis;
+	stage = START;
+	stage_clock = 0;
+	mode = TWO_PLAYER_HALF;
 	draw();
 
 	g_ADC = adc_raw;
