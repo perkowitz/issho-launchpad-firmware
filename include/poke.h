@@ -29,7 +29,6 @@
 // game stages
 #define START 0
 #define PLAYING 1
-#define SCORING 2
 
 // game modes
 #define TWO_PLAYER_ALL 0

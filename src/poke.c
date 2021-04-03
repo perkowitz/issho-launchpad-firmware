@@ -284,19 +284,6 @@ void draw_buttons(u8 group, u8 color) {
 	}
 }
 
-void draw_function_button(u8 button_index) {
-
-	switch (button_index) {
-		case PLAY_BUTTON:
-//			draw_by_index(button_index, WHITE);
-			break;
-	}
-}
-
-void draw_function_buttons() {
-	draw_function_button(PLAY_BUTTON);
-}
-
 void draw_scores() {
 	draw_button(LEFT, (p1_score - 1) % 8, p1_color);
 	draw_button(RIGHT, (p2_score - 1) % 8, p2_color);
@@ -318,11 +305,11 @@ void draw_pads() {
 	}
 }
 
-void draw_settings() {
+void draw_setup() {
+
 }
 
 void draw() {
-	draw_function_buttons();
 	draw_pads();
 }
 

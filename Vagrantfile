@@ -54,6 +54,10 @@ Vagrant.configure(2) do |config|
 
      # let’s have something usable for proper development
      vb.cpus = 2
+     
+     # corrects for clock skew due to the vm going to sleep; resync time every 10 seconds
+     vb.customize [ "guestproperty", "set", :id, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold", 10000 ]
+     
   end
   
   # View the documentation for the provider you are using for more
