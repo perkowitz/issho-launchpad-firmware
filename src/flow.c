@@ -39,14 +39,16 @@
 #include "flow.h"
 #include <stdio.h>
 #include <stdlib.h>
-//#include <time.h>
 #include <stdbool.h>
+#include <string.h>
 
+
+//#define DEBUG 1
 
 /***** global variables *****/
 static const u16 *g_ADC = 0;   // ADC frame pointer
 static u8 hw_buttons[BUTTON_COUNT] = {0};
-static u8 clock = INTERNAL;
+static u8 clock_source = INTERNAL;
 static Stage stages[GRID_COLUMNS];
 static Color palette[PSIZE];
 static u8 rainbow[8];
@@ -63,6 +65,8 @@ const u8 random_markers[RANDOM_MARKER_COUNT] = {
 		TIE_MARKER, SKIP_MARKER,
 		LEGATO_MARKER
 };
+
+static unsigned long app_clock = 0;
 
 static Memory memory;
 //static Pattern patterns[PATTERN_COUNT];
@@ -85,6 +89,9 @@ static u8 current_note = OUT_OF_RANGE;
 static u8 current_note_column;
 static u8 current_note_row;
 static u8 reset = 1;
+
+static u8 pressed_button_index = OUT_OF_RANGE;
+static unsigned long pressed_button_time = 0;
 
 static u8 c_stage = 0;
 static u8 c_repeat = 0;
@@ -128,13 +135,13 @@ void warning(u8 level) {
     warning_blink = 0;
 }
 
-#define DEBUG true
+#ifdef DEBUG
 void debug(u8 index, u8 level) {
-	if (DEBUG && level != OUT_OF_RANGE) {
+	if (level != OUT_OF_RANGE) {
 		plot_led(TYPEPAD, (index + 1) * 10 + 9, palette[level]);
 	}
 }
-
+#endif
 
 /***** midi *****/
 
@@ -583,6 +590,12 @@ void update_stage(Stage *stage, u8 row, u8 column, u8 marker, bool turn_on) {
 
 }
 
+void copy_pattern(u8 from_pattern, u8 to_pattern) {
+	if (from_pattern == to_pattern) {
+		return;
+	}
+	memcpy(&memory.patterns[to_pattern], &memory.patterns[from_pattern], sizeof(memory.patterns[from_pattern]));
+}
 
 /***** save and load *****/
 
@@ -711,10 +724,10 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
  */
 void on_button(u8 index, u8 group, u8 offset, u8 value) {
 	if (index == PLAY_BUTTON) {
-		if (value && (clock == INTERNAL || !is_running)) {
+		if (value && (clock_source == INTERNAL || !is_running)) {
 			is_running = !is_running;
 			if (is_running) {
-				clock = INTERNAL;
+				clock_source = INTERNAL;
 				c_measure = c_beat = c_tick = c_stage = 0;
 			} else {
 				note_off();
@@ -812,9 +825,21 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 
 
 	} else if (group == PATTERNS_GROUP && offset >= PATTERNS_OFFSET_LO && offset <= PATTERNS_OFFSET_HI) {
-		change_pattern(offset - PATTERNS_OFFSET_LO + c_pattern_group * 4);
-		draw_pads();
-		draw_patterns();
+		if (value) {
+			pressed_button_index = index;
+			pressed_button_time = app_clock;
+			draw_button(group, offset, BUTTON_ON_COLOR);
+		} else {
+			u8 new_pattern = offset - PATTERNS_OFFSET_LO + c_pattern_group * 4;
+			if (index == pressed_button_index && app_clock - pressed_button_time >= LONG_PRESS_MILLIS) {
+				copy_pattern(c_pattern, new_pattern);
+			} else {
+				// change pattern on release
+				change_pattern(new_pattern);
+				draw_pads();
+			}
+			draw_patterns();
+		}
 
 	} else if (group == MARKER_GROUP) {
 
@@ -983,17 +1008,19 @@ void tick() {
 			}
 		}
 
-		// echo the current step activity on the left buttons
-//		debug(1, stage.note_count > 0 ? NOTE_MARKER : OFF_MARKER);
-//		debug(1, stage.accidental > 0 ? SHARP_MARKER : OUT_OF_RANGE);
-//		debug(1, stage.accidental < 0 ? FLAT_MARKER : OUT_OF_RANGE);
-//		debug(1, stage.tie > 0 ? TIE_MARKER : OUT_OF_RANGE);
-//		debug(2, stage.octave > 0 ? OCTAVE_UP_MARKER : OFF_MARKER);
-//		debug(2, stage.octave < 0 ? OCTAVE_DOWN_MARKER : OUT_OF_RANGE);
-//		debug(3, stage.velocity > 0 ? VELOCITY_UP_MARKER : OFF_MARKER);
-//		debug(3, stage.velocity < 0 ? VELOCITY_DOWN_MARKER : OUT_OF_RANGE);
-//		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
-//		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
+#ifdef DEBUG
+		// echo the current step activity on the debug buttons
+		debug(1, stage.note_count > 0 ? NOTE_MARKER : OFF_MARKER);
+		debug(1, stage.accidental > 0 ? SHARP_MARKER : OUT_OF_RANGE);
+		debug(1, stage.accidental < 0 ? FLAT_MARKER : OUT_OF_RANGE);
+		debug(1, stage.tie > 0 ? TIE_MARKER : OUT_OF_RANGE);
+		debug(2, stage.octave > 0 ? OCTAVE_UP_MARKER : OFF_MARKER);
+		debug(2, stage.octave < 0 ? OCTAVE_DOWN_MARKER : OUT_OF_RANGE);
+		debug(3, stage.velocity > 0 ? VELOCITY_UP_MARKER : OFF_MARKER);
+		debug(3, stage.velocity < 0 ? VELOCITY_DOWN_MARKER : OUT_OF_RANGE);
+		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
+		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
+#endif
 
 		// now increment current extension
 		// if that would exceed the stage's extension count, increment the repeats count
@@ -1117,26 +1144,26 @@ void app_midi_event(u8 port, u8 status, u8 d1, u8 d2)
 
 		case MIDISTART:
 			is_running = true;
-			clock = EXTERNAL;
+			clock_source = EXTERNAL;
 			c_measure = c_beat = c_tick = c_stage = 0;
 			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDISTOP:
 			is_running = false;
-			clock = INTERNAL;
+			clock_source = INTERNAL;
 			note_off();
 			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDICONTINUE:
 			is_running = true;
-			clock = EXTERNAL;
+			clock_source = EXTERNAL;
 			draw_function_button(PLAY_BUTTON);
 			break;
 
 		case MIDITIMINGCLOCK:
-			if (is_running && clock == EXTERNAL) {
+			if (is_running && clock_source == EXTERNAL) {
 				tick();
 			}
 			break;
@@ -1198,11 +1225,13 @@ void app_timer_event()
 	#define TICK_INTERVAL 20
 	#define BLINK_INTERVAL 125
 
+	app_clock++;
+
     static int tick_count = 0;
 	static int tick_timer = TICK_INTERVAL;
 	static int blink_timer = BLINK_INTERVAL;
     
-    if (clock == INTERNAL && is_running && tick_timer >= TICK_INTERVAL) {
+    if (clock_source == INTERNAL && is_running && tick_timer >= TICK_INTERVAL) {
     	tick_timer = 0;
     	tick();
     } else {
