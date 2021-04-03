@@ -18,3 +18,12 @@ With multiple extends and repeats, sequences can be of irregular lengths, with c
 ## Poke
 
 Poke is a simple game that can be played on the launchpad. See [rules](Poke.md).
+
+
+## Releases
+
+[v0.1: initial version of FLOW](https://github.com/perkowitz/issho-launchpad-firmware/releases/tag/v0.1)
+- Implements basic features of FLOW sequencer
+- Missing internal tempo change, some performance features, pattern copy, some pattern modifiers
+- Release includes sysex file to load firmware and a full PDF manual
+
