@@ -25,6 +25,17 @@
 #define TICKS_PER_BEAT 24
 #define TICKS_PER_16TH (TICKS_PER_BEAT/4)
 
+// flows
+// these are sequences of patterns (0-3) for each combination of
+// selected pattern + length
+char * flows[] = {
+		"0", "1", "2", "3",				// length=1
+		"01", "01", "23", "23",			// length=2
+		"012", "012", "012", "3",		// length=3
+		"0123", "0123", "0123", "0123",	// length=4
+};
+
+
 // stage modifiers
 #define DEFAULT_OCTAVE 5
 #define DEFAULT_VELOCITY 63
@@ -55,14 +66,37 @@
 #define LEGATO_MARKER DARK_GRAY
 #define RANDOM_MARKER YELLOW
 
-// other element colors
+// elements
+#define PLAY_BUTTON 91
+#define PANIC_BUTTON 92
+#define SETTINGS_BUTTON 93
+#define WATER_BUTTON 94
+#define RESET_BUTTON 95
+#define LENGTH_BUTTON 96
+#define LOAD_BUTTON 97
+#define CLEAR_BUTTON 98
+#define FLOW_BUTTON 40
+#define ARP_BUTTON 30
+#define SHUFFLE_BUTTON 20
+#define FILL_BUTTON 10
+
+#define GRID_COLUMNS (COLUMN_COUNT + 1)
+#define PATTERN_MOD_GROUP RIGHT
+#define PATTERN_MOD_COLUMN COLUMN_COUNT
+
+// element colors
 #define BUTTON_OFF_COLOR DARK_GRAY
 #define BUTTON_ON_COLOR WHITE
+#define BUTTON_ERROR_COLOR RED
 #define PANIC_BUTTON_OFF_COLOR DIM_RED
 #define PANIC_BUTTON_ON_COLOR WHITE
 #define RESET_BUTTON_OFF_COLOR DARK_GRAY
-#define RESET_BUTTON_1_COLOR DIM_GREEN
-#define RESET_BUTTON_2_COLOR GREEN
+#define RESET_BUTTON_1_COLOR DIM_BLUE
+#define RESET_BUTTON_2_COLOR SKY_BLUE
+#define LENGTH_BUTTON_1_COLOR DARK_GRAY
+#define LENGTH_BUTTON_2_COLOR DIM_BLUE
+#define LENGTH_BUTTON_3_COLOR SKY_BLUE
+#define LENGTH_BUTTON_4_COLOR WHITE
 #define SONG_BUTTON_COLOR BLUE
 #define SHUFFLE_BUTTON_COLOR ORANGE
 #define FILL_BUTTON_COLOR YELLOW
@@ -74,22 +108,7 @@
 #define PATTERN_SELECTED_COLOR_2 MAGENTA
 #define WATER_BUTTON_COLOR SKY_BLUE
 
-// elements
-#define PLAY_BUTTON 91
-#define PANIC_BUTTON 92
-#define SETTINGS_BUTTON 93
-#define RESET_BUTTON 40
-#define SONG_BUTTON 30
-#define SHUFFLE_BUTTON 20
-#define FILL_BUTTON 10
-#define LOAD_BUTTON 97
-#define CLEAR_BUTTON 98
-#define WATER_BUTTON 94
-
-#define GRID_COLUMNS (COLUMN_COUNT + 1)
-#define PATTERN_MOD_GROUP RIGHT
-#define PATTERN_MOD_COLUMN COLUMN_COUNT
-
+// other layout constants
 #define SETTINGS_MIDI_ROW_1 1
 #define SETTINGS_MIDI_ROW_2 0
 #define SETTINGS_VERSION_ROW 5
