@@ -74,17 +74,21 @@
 #define PATTERN_SELECTED_COLOR_2 MAGENTA
 #define WATER_BUTTON_COLOR SKY_BLUE
 
-// elements
+// top buttons
 #define PLAY_BUTTON 91
 #define PANIC_BUTTON 92
 #define SETTINGS_BUTTON 93
-#define RESET_BUTTON 40
-#define SONG_BUTTON 30
-#define SHUFFLE_BUTTON 20
-#define FILL_BUTTON 10
+#define WATER_BUTTON 94
+#define RESET_BUTTON 95
+#define LENGTH_BUTTON 96
 #define LOAD_BUTTON 97
 #define CLEAR_BUTTON 98
-#define WATER_BUTTON 94
+
+// left buttons
+#define FILL_BUTTON 10
+#define SHUFFLE_BUTTON 20
+#define ARP_BUTTON 30
+#define FLOW_BUTTON 40
 
 #define GRID_COLUMNS (COLUMN_COUNT + 1)
 #define PATTERN_MOD_GROUP RIGHT

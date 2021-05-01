@@ -93,6 +93,7 @@ static u8 reset = 1;
 static u8 pressed_button_index = OUT_OF_RANGE;
 static unsigned long pressed_button_time = 0;
 
+static u8 stage_order[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 static u8 c_stage = 0;
 static u8 c_repeat = 0;
 static u8 c_extend = 0;
@@ -354,6 +355,9 @@ void draw_function_button(u8 button_index) {
 		case SETTINGS_BUTTON:
 			draw_by_index(button_index, in_settings ? BUTTON_ON_COLOR : BUTTON_OFF_COLOR);
 			break;
+		case WATER_BUTTON:
+			draw_by_index(button_index, WATER_BUTTON_COLOR);
+			break;
 		case RESET_BUTTON:
 			c = RESET_BUTTON_OFF_COLOR;
 			if (reset == 1) {
@@ -363,36 +367,39 @@ void draw_function_button(u8 button_index) {
 			}
 			draw_by_index(button_index, c);
 			break;
-//		case SONG_BUTTON:
-//			draw_by_index(button_index, song_on ? PERF_BUTTON_ON_COLOR : SONG_BUTTON_COLOR);
-//			break;
-//		case SHUFFLE_BUTTON:
-//			draw_by_index(button_index, shuffle_on ? PERF_BUTTON_ON_COLOR : SHUFFLE_BUTTON_COLOR);
-//			break;
-//		case FILL_BUTTON:
-//			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
-//			break;
-		case WATER_BUTTON:
-			draw_by_index(button_index, WATER_BUTTON_COLOR);
-			break;
 		case LOAD_BUTTON:
 		case CLEAR_BUTTON:
 			draw_by_index(button_index, BUTTON_OFF_COLOR);
 			break;
+//		case FILL_BUTTON:
+//			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
+//			break;
+		case SHUFFLE_BUTTON:
+			draw_by_index(button_index, shuffle_on ? PERF_BUTTON_ON_COLOR : SHUFFLE_BUTTON_COLOR);
+			break;
+//		case ARP_BUTTON:
+//			break;
+//		case FLOW_BUTTON:
+//			draw_by_index(button_index, song_on ? PERF_BUTTON_ON_COLOR : FLOW_BUTTON_COLOR);
+//			break;
 	}
 }
 
 void draw_function_buttons() {
+	// top buttons
 	draw_function_button(PLAY_BUTTON);
 	draw_function_button(PANIC_BUTTON);
 	draw_function_button(SETTINGS_BUTTON);
+	draw_function_button(WATER_BUTTON);
 	draw_function_button(RESET_BUTTON);
-	draw_function_button(SONG_BUTTON);
-	draw_function_button(SHUFFLE_BUTTON);
-	draw_function_button(FILL_BUTTON);
 	draw_function_button(LOAD_BUTTON);
 	draw_function_button(CLEAR_BUTTON);
-	draw_function_button(WATER_BUTTON);
+
+	// left buttons
+	draw_function_button(FILL_BUTTON);
+	draw_function_button(SHUFFLE_BUTTON);
+	draw_function_button(ARP_BUTTON);
+	draw_function_button(FLOW_BUTTON);
 }
 
 void draw_pads() {
@@ -777,10 +784,10 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			draw_by_index(CLEAR_BUTTON, BUTTON_OFF_COLOR);
 		}
 
-	} else if (index == SONG_BUTTON) {
+	} else if (index == FLOW_BUTTON) {
 		if (value) {
 			song_on = !song_on;
-			draw_function_button(SONG_BUTTON);
+			draw_function_button(FLOW_BUTTON);
 		}
 
 	} else if (index == SHUFFLE_BUTTON) {
@@ -963,10 +970,11 @@ void tick() {
 		}
 
 		// copy the stage and apply randomness to it if needed.
-		Stage stage = stages[c_stage];
+		u8 stage_index = stage_order[c_stage];
+		Stage stage = stages[stage_index];
 		for (int i = 0; i < stage.random + stages[PATTERN_MOD_COLUMN].random; i++) {
 			u8 r = rand() % RANDOM_MARKER_COUNT;
-			update_stage(&stage, 0, c_stage, random_markers[r], true);
+			update_stage(&stage, 0, stage_index, random_markers[r], true);
 		}
 
 		// add in pattern mods (note & velocity mods computed later; random already computed)
@@ -993,11 +1001,11 @@ void tick() {
 				u8 n = get_note(stage);
 				hal_send_midi(USBMIDI, NOTEON | memory.settings.midi_channel, n, get_velocity(stage));
 				if (!in_settings) {
-					draw_pad(stage.note, c_stage, PLAYING_NOTE_COLOR);
+					draw_pad(stage.note, stage_index, PLAYING_NOTE_COLOR);
 				}
 				current_note = n;
 				current_note_row = stage.note;
-				current_note_column = c_stage;
+				current_note_column = stage_index;
 			}
 
 			if (stage.legato > 0 && previous_note != OUT_OF_RANGE) {
@@ -1035,7 +1043,7 @@ void tick() {
 			u8 previous_stage = c_stage;
 			c_stage = (c_stage + 1) % STAGE_COUNT;
 			// if every stage is set to skip, it will replay the current stage
-			while (stages[c_stage].skip > 0 && c_stage != previous_stage) {
+			while (stages[stage_index].skip > 0 && c_stage != previous_stage) {
 				c_stage = (c_stage + 1) % STAGE_COUNT;
 			}
 		}
