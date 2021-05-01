@@ -29,12 +29,13 @@ LDFLAGS += -T$(LDSCRIPT) -u _start -u _Minimum_Stack_Size  -mcpu=cortex-m3 -mthu
 .SECONDARY: $(wildcard *.elf) $(wildcard *.hex)
 
 
-all: flow poke
+all: flow poke reversi
 
 flow: $(OUTPUT_PREFIX)flow.syx
 
 poke: $(OUTPUT_PREFIX)poke.syx
 
+reversi: $(OUTPUT_PREFIX)reversi.syx
 
 
 # build the tool for conversion of ELF files to sysex, ready for upload to the unit
