@@ -89,6 +89,7 @@ static u8 current_note = OUT_OF_RANGE;
 static u8 current_note_column;
 static u8 current_note_row;
 static u8 reset = 1;
+static u8 length = 1;
 
 static u8 pressed_button_index = OUT_OF_RANGE;
 static unsigned long pressed_button_time = 0;
@@ -381,9 +382,22 @@ void draw_function_button(u8 button_index) {
 			}
 			draw_by_index(button_index, c);
 			break;
+		case LENGTH_BUTTON:
+			c = LENGTH_BUTTON_1_COLOR;;
+			if (length == 2) {
+				c = LENGTH_BUTTON_2_COLOR;
+			} else if (length == 3) {
+				c = LENGTH_BUTTON_3_COLOR;
+			} else if (length == 4) {
+				c = LENGTH_BUTTON_4_COLOR;
+			}
+			draw_by_index(button_index, c);
+			break;
 		case LOAD_BUTTON:
+			draw_by_index(button_index, LOAD_BUTTON_COLOR);
+			break;
 		case CLEAR_BUTTON:
-			draw_by_index(button_index, BUTTON_OFF_COLOR);
+			draw_by_index(button_index, CLEAR_BUTTON_COLOR);
 			break;
 //		case FILL_BUTTON:
 //			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
@@ -406,6 +420,7 @@ void draw_function_buttons() {
 	draw_function_button(SETTINGS_BUTTON);
 	draw_function_button(WATER_BUTTON);
 	draw_function_button(RESET_BUTTON);
+	draw_function_button(LENGTH_BUTTON);
 	draw_function_button(LOAD_BUTTON);
 	draw_function_button(CLEAR_BUTTON);
 
@@ -463,14 +478,23 @@ void draw_settings() {
 }
 
 void draw_patterns() {
-	for (int offset = PATTERNS_OFFSET_LO; offset <= PATTERNS_OFFSET_HI; offset++) {
-		u8 p = offset - PATTERNS_OFFSET_LO;
+	for (u8 p = 0; p < 4; p++) {
+		u8 offset = PATTERNS_OFFSET_LO + (3 - p);
 		if (c_pattern_group == 0) {
 			draw_button(PATTERNS_GROUP, offset, p == c_pattern ? PATTERN_SELECTED_COLOR_1 : PATTERN_COLOR_1);
 		} else {
 			draw_button(PATTERNS_GROUP, offset, (p + 4) == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
 		}
+
 	}
+//	for (int offset = PATTERNS_OFFSET_LO; offset <= PATTERNS_OFFSET_HI; offset++) {
+//		u8 p = offset - PATTERNS_OFFSET_LO;
+//		if (c_pattern_group == 0) {
+//			draw_button(PATTERNS_GROUP, offset, p == c_pattern ? PATTERN_SELECTED_COLOR_1 : PATTERN_COLOR_1);
+//		} else {
+//			draw_button(PATTERNS_GROUP, offset, (p + 4) == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
+//		}
+//	}
 }
 
 void draw_water() {
@@ -641,6 +665,32 @@ void copy_pattern(u8 from_pattern, u8 to_pattern) {
 	}
 }
 
+u8 get_first_pattern() {
+	if (length == 2) {
+		return c_pattern - c_pattern % 2;
+	} else if (length == 3 && c_pattern % 4 < 3) {
+		return c_pattern - c_pattern % 4;
+	} else if (length == 4) {
+		return c_pattern - c_pattern % 4;
+	}
+	return c_pattern;
+}
+
+u8 get_next_pattern() {
+	u8 f = get_first_pattern();
+	if (length == 2) {
+		return f + (c_pattern + 1) % 2;
+	} else if (length == 3 && c_pattern % 4 < 3) {
+		return f + (c_pattern + 1) % 3;
+	} else if (length == 4) {
+		return f + (c_pattern +1) % 4;
+	}
+	else {
+		return c_pattern;
+	}
+}
+
+
 /***** save and load *****/
 
 void clear_stages() {
@@ -703,6 +753,7 @@ void change_pattern(u8 p_index) {
 	c_stage = c_extend = c_repeat = 0;
 	clear_stages();
 	load_stages();
+	draw_patterns();
 }
 
 
@@ -807,6 +858,12 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			draw_function_button(RESET_BUTTON);
 		}
 
+	} else if (index == LENGTH_BUTTON) {
+		if (value) {
+			length = length % 4 + 1;
+			draw_function_button(LENGTH_BUTTON);
+		}
+
 	} else if (index == LOAD_BUTTON) {
 		if (value) {
 			draw_by_index(LOAD_BUTTON, BUTTON_ON_COLOR);
@@ -882,7 +939,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			pressed_button_time = app_clock;
 			draw_button(group, offset, BUTTON_ON_COLOR);
 		} else {
-			u8 new_pattern = offset - PATTERNS_OFFSET_LO + c_pattern_group * 4;
+			u8 new_pattern = (3 - offset + PATTERNS_OFFSET_LO) + c_pattern_group * 4;
 			if (index == pressed_button_index && app_clock - pressed_button_time >= LONG_PRESS_MILLIS) {
 				copy_pattern(c_pattern, new_pattern);
 			} else {
@@ -1010,6 +1067,10 @@ void tick() {
 		// reset=1: reset every measure; reset=2: every other measure
 		if (c_beat == 0 && c_tick == 0) {
 			if (reset == 1 || (reset == 2 && c_measure % 2 == 0)) {
+				u8 np = get_first_pattern();
+				if (np != c_pattern) {
+					change_pattern(np);
+				}
 				c_stage = c_repeat = c_extend = 0;
 			}
 		}
@@ -1090,6 +1151,13 @@ void tick() {
 			while (stages[stage_index(c_stage)].skip > 0 && c_stage != previous_stage) {
 				c_stage = (c_stage + 1) % STAGE_COUNT;
 			}
+			if (c_stage == 0) {
+				u8 np = get_next_pattern();
+				if (np != c_pattern) {
+					change_pattern(np);
+				}
+				c_stage = c_repeat = c_extend = 0;
+			}
 		}
 
 
@@ -1101,9 +1169,6 @@ void tick() {
 	}
 	if (c_beat == 0 && c_tick == 0) {
 		c_measure++;
-		if (!in_settings) {
-			draw_pads();
-		}
 	}
 
 }
