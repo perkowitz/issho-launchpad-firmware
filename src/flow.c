@@ -296,18 +296,18 @@ void set_grid(u8 row, u8 column, u8 value) {
 	set_pattern_grid(c_pattern, row, column, value);
 }
 
-void set_and_draw_grid(u8 row, u8 column, u8 value) {
-	set_pattern_grid(c_pattern, row, column, value);
-	if (column == PATTERN_MOD_COLUMN) {
-		draw_button(PATTERN_MOD_GROUP, row, value);
-	} else {
-		draw_pad(row, column, value);
-	}
-}
-
-u8 get_grid(u8 row, u8 column) {
-	return get_pattern_grid(c_pattern, row, column);
-}
+//void set_and_draw_grid(u8 row, u8 column, u8 value) {
+//	set_pattern_grid(c_pattern, row, column, value);
+//	if (column == PATTERN_MOD_COLUMN) {
+//		draw_button(PATTERN_MOD_GROUP, row, value);
+//	} else {
+//		draw_pad(row, column, value);
+//	}
+//}
+//
+//u8 get_grid(u8 row, u8 column) {
+//	return get_pattern_grid(c_pattern, row, column);
+//}
 
 
 /***** stages *****/
@@ -422,10 +422,10 @@ void draw_pads() {
 	}
 
 	for (int row = 0; row < ROW_COUNT; row++) {
-		u8 c = get_grid(row, PATTERN_MOD_COLUMN);
+		u8 c = get_pattern_grid(c_pattern, row, PATTERN_MOD_COLUMN);
 		draw_button(PATTERN_MOD_GROUP, row, c);
 		for (int column = 0; column < COLUMN_COUNT; column++) {
-			c = get_grid(row, stage_index(column));
+			c = get_pattern_grid(c_pattern, row, stage_index(column));
 			draw_pad(row, column, c);
 		}
 	}
@@ -530,6 +530,8 @@ void note_off() {
 // update_stage updates stage settings when a marker is changed.
 //   if turn_on=true, a marker was added; if false, a marker was removed.
 //   for some markers (NOTE), row placement matters.
+// Note: the column param is where to draw any update; when shuffling, send
+//   the column number, not the mapped value (stage_index)
 void update_stage(Stage *stage, u8 row, u8 column, u8 marker, bool turn_on) {
 
 	s8 inc = turn_on ? 1 : -1;
@@ -540,7 +542,8 @@ void update_stage(Stage *stage, u8 row, u8 column, u8 marker, bool turn_on) {
 				u8 old_note = stage->note;
 				stage->note_count--;
 				stage->note = OUT_OF_RANGE;
-				set_and_draw_grid(old_note, column, OFF_MARKER);
+				set_pattern_grid(c_pattern, old_note, stage_index(column), OFF_MARKER);
+				draw_pad(old_note, column, OFF_MARKER);
 			}
 			stage->note_count += inc;
 			if (turn_on) {
@@ -656,7 +659,7 @@ void save() {
 void load_stages() {
 	for (int row = 0; row < ROW_COUNT; row++) {
 		for (int column = 0; column < GRID_COLUMNS; column++) {
-			u8 value = get_grid(row, column);
+			u8 value = get_pattern_grid(c_pattern, row, column);
 			update_stage(&stages[column], row, column, value, true);
 			if (!in_settings) {
 				if (column == PATTERN_MOD_COLUMN) {
@@ -731,18 +734,20 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 	}
 
 	if (value) {
-		u8 previous = get_grid(row, stage_index(column));
+		u8 previous = get_pattern_grid(c_pattern, row, stage_index(column));
 		bool turn_on = (previous != current_marker);
 
 		// remove the old marker that was at this row
-		update_stage(&stages[column], row, column, previous, false);
+		update_stage(&stages[stage_index(column)], row, column, previous, false);
 
 		if (turn_on) {
-			set_and_draw_grid(row, stage_index(column), current_marker);
+			set_grid(row, stage_index(column), current_marker);
+			draw_pad(row, column, current_marker);
 			// add the new marker
-			update_stage(&stages[stage_index(column)], row, stage_index(column), current_marker, true);
+			update_stage(&stages[stage_index(column)], row, column, current_marker, true);
 		} else {
-			set_and_draw_grid(row, stage_index(column), OFF_MARKER);
+			set_grid(row, stage_index(column), OFF_MARKER);
+			draw_pad(row, column, OFF_MARKER);
 		}
 
 	}
@@ -841,7 +846,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 	} else if (group == PATTERN_MOD_GROUP) {
 		// same logic as in on_pad() but for buttons
 		if (value) {
-			u8 previous = get_grid(offset, PATTERN_MOD_COLUMN);
+			u8 previous = get_pattern_grid(c_pattern, offset, PATTERN_MOD_COLUMN);
 			bool turn_on = (previous != current_marker);
 
 			// remove the old marker that was at this row
