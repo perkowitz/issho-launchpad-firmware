@@ -93,7 +93,7 @@ static u8 reset = 1;
 static u8 pressed_button_index = OUT_OF_RANGE;
 static unsigned long pressed_button_time = 0;
 
-static u8 stage_order[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+static StageOrder stage_orders[PATTERN_COUNT];
 static u8 c_stage = 0;
 static u8 c_repeat = 0;
 static u8 c_extend = 0;
@@ -310,6 +310,20 @@ u8 get_grid(u8 row, u8 column) {
 }
 
 
+/***** stages *****/
+
+void reset_stage_orders() {
+	for (u8 p = 0; p < PATTERN_COUNT; p++) {
+		for (u8 s = 0; s < STAGE_COUNT; s++) {
+			stage_orders[p].order[s] = s;
+		}
+	}
+}
+
+u8 stage_index(u8 index) {
+	return stage_orders[c_pattern].order[index];
+}
+
 /***** draw *****/
 
 void clear_pads() {
@@ -403,11 +417,15 @@ void draw_function_buttons() {
 }
 
 void draw_pads() {
+	if (in_settings) {
+		return;
+	}
+
 	for (int row = 0; row < ROW_COUNT; row++) {
 		u8 c = get_grid(row, PATTERN_MOD_COLUMN);
 		draw_button(PATTERN_MOD_GROUP, row, c);
 		for (int column = 0; column < COLUMN_COUNT; column++) {
-			c = get_grid(row, column);
+			c = get_grid(row, stage_index(column));
 			draw_pad(row, column, c);
 		}
 	}
@@ -452,19 +470,6 @@ void draw_patterns() {
 		} else {
 			draw_button(PATTERNS_GROUP, offset, (p + 4) == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
 		}
-	}
-}
-
-void draw_droplet() {
-	u8 row = rand() % ROW_COUNT;
-	u8 column = rand() % COLUMN_COUNT;
-	u8 index = pad_index(row, column);
-	if (index != OUT_OF_RANGE) {
-		u8 r = rand() % 4;
-		u8 g = rand() % 8;
-		u8 b = rand() % 32 + 16;
-		Color c = (Color){r, g, b};
-		plot_led(TYPEPAD, index, c);
 	}
 }
 
@@ -592,9 +597,26 @@ void update_stage(Stage *stage, u8 row, u8 column, u8 marker, bool turn_on) {
 		case RANDOM_MARKER:
 			stage->random += inc;
 			break;
-
 	}
+}
 
+void shuffle_stages() {
+	for (int i = STAGE_COUNT - 1; i > 0; i--) {
+		u8 r = rand() % (i + 1);
+		u8 swap = stage_orders[c_pattern].order[r];
+		stage_orders[c_pattern].order[r] = stage_orders[c_pattern].order[i];
+		stage_orders[c_pattern].order[i] = swap;
+//		stage_orders[c_pattern].order[i] = 3;
+	}
+//	for (int i = 0; i < STAGE_COUNT; i++) {
+//		stage_orders[c_pattern].order[i] = STAGE_COUNT - 1 - i;
+//	}
+}
+
+void unshuffle_stages() {
+	for (int i = 0; i < 8; i++) {
+		stage_orders[c_pattern].order[i] = i;
+	}
 }
 
 void copy_pattern(u8 from_pattern, u8 to_pattern) {
@@ -709,18 +731,18 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 	}
 
 	if (value) {
-		u8 previous = get_grid(row, column);
+		u8 previous = get_grid(row, stage_index(column));
 		bool turn_on = (previous != current_marker);
 
 		// remove the old marker that was at this row
 		update_stage(&stages[column], row, column, previous, false);
 
 		if (turn_on) {
-			set_and_draw_grid(row, column, current_marker);
+			set_and_draw_grid(row, stage_index(column), current_marker);
 			// add the new marker
-			update_stage(&stages[column], row, column, current_marker, true);
+			update_stage(&stages[stage_index(column)], row, stage_index(column), current_marker, true);
 		} else {
-			set_and_draw_grid(row, column, OFF_MARKER);
+			set_and_draw_grid(row, stage_index(column), OFF_MARKER);
 		}
 
 	}
@@ -794,6 +816,12 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 		if (value) {
 			shuffle_on = !shuffle_on;
 			draw_function_button(SHUFFLE_BUTTON);
+			if (shuffle_on) {
+				shuffle_stages();
+			} else {
+				unshuffle_stages();
+			}
+			draw_pads();
 		}
 
 	} else if (index == FILL_BUTTON) {
@@ -970,11 +998,10 @@ void tick() {
 		}
 
 		// copy the stage and apply randomness to it if needed.
-		u8 stage_index = stage_order[c_stage];
-		Stage stage = stages[stage_index];
+		Stage stage = stages[stage_index(c_stage)];
 		for (int i = 0; i < stage.random + stages[PATTERN_MOD_COLUMN].random; i++) {
 			u8 r = rand() % RANDOM_MARKER_COUNT;
-			update_stage(&stage, 0, stage_index, random_markers[r], true);
+			update_stage(&stage, 0, stage_index(c_stage), random_markers[r], true);
 		}
 
 		// add in pattern mods (note & velocity mods computed later; random already computed)
@@ -1001,11 +1028,11 @@ void tick() {
 				u8 n = get_note(stage);
 				hal_send_midi(USBMIDI, NOTEON | memory.settings.midi_channel, n, get_velocity(stage));
 				if (!in_settings) {
-					draw_pad(stage.note, stage_index, PLAYING_NOTE_COLOR);
+					draw_pad(stage.note, c_stage, PLAYING_NOTE_COLOR);
 				}
 				current_note = n;
 				current_note_row = stage.note;
-				current_note_column = stage_index;
+				current_note_column = c_stage;
 			}
 
 			if (stage.legato > 0 && previous_note != OUT_OF_RANGE) {
@@ -1043,7 +1070,7 @@ void tick() {
 			u8 previous_stage = c_stage;
 			c_stage = (c_stage + 1) % STAGE_COUNT;
 			// if every stage is set to skip, it will replay the current stage
-			while (stages[stage_index].skip > 0 && c_stage != previous_stage) {
+			while (stages[stage_index(c_stage)].skip > 0 && c_stage != previous_stage) {
 				c_stage = (c_stage + 1) % STAGE_COUNT;
 			}
 		}
@@ -1057,6 +1084,9 @@ void tick() {
 	}
 	if (c_beat == 0 && c_tick == 0) {
 		c_measure++;
+		if (!in_settings) {
+			draw_pads();
+		}
 	}
 
 }
@@ -1349,6 +1379,7 @@ void app_init(const u16 *adc_raw)
 	for (int s = 0; s < 8; s++) {
 		stages[s] = (Stage) { 0, OUT_OF_RANGE, 0, 0, 0, 0, 0, 0, 0 };
 	}
+	reset_stage_orders();
 
 	// load just the settings, so we can check whether to load all patterns
 	load_settings();
