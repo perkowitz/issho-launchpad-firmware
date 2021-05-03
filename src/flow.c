@@ -626,7 +626,19 @@ void copy_pattern(u8 from_pattern, u8 to_pattern) {
 	if (from_pattern == to_pattern) {
 		return;
 	}
+	// copy the entire pattern
 	memcpy(&memory.patterns[to_pattern], &memory.patterns[from_pattern], sizeof(memory.patterns[from_pattern]));
+
+	// if shuffle is on, order the new pattern's stages in the shuffled order
+	if (shuffle_on) {
+		for (u8 s = 0; s < STAGE_COUNT; s++) {
+			for (u8 row = 0; row < ROW_COUNT; row++) {
+				u8 v = get_pattern_grid(from_pattern, row, s);
+				set_pattern_grid(to_pattern, row, stage_index(s), v);
+			}
+		}
+
+	}
 }
 
 /***** save and load *****/
