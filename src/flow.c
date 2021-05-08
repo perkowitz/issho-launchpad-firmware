@@ -77,10 +77,10 @@ static u8 warning_level = 0;
 static u8 warning_blink = 0;
 
 static bool is_running = false;
-static bool is_playing = false;
 static bool in_settings = false;
 static bool song_on = false;
 static bool shuffle_on = false;
+static bool pattern_shuffles[PATTERN_COUNT] = { false, false, false, false, false, false, false, false };
 static bool fill_on = false;
 static bool water_on = false;
 static u8 current_marker = OFF_MARKER;
@@ -315,6 +315,7 @@ void set_grid(u8 row, u8 column, u8 value) {
 
 void reset_stage_orders() {
 	for (u8 p = 0; p < PATTERN_COUNT; p++) {
+		pattern_shuffles[p] = false;
 		for (u8 s = 0; s < STAGE_COUNT; s++) {
 			stage_orders[p].order[s] = s;
 		}
@@ -352,8 +353,6 @@ void draw_markers() {
 	set_and_draw_button(MARKER_GROUP, 5, EXTEND_MARKER);
 	set_and_draw_button(MARKER_GROUP, 6, TIE_MARKER);
 	set_and_draw_button(MARKER_GROUP, 7, LEGATO_MARKER);
-	current_marker_index = 1;
-	current_marker = marker_map[current_marker_index];
 //	draw_by_index(DISPLAY_BUTTON, current_marker);
 }
 
@@ -362,7 +361,7 @@ void draw_function_button(u8 button_index) {
 
 	switch (button_index) {
 		case PLAY_BUTTON:
-			draw_by_index(button_index, is_playing ? BUTTON_ON_COLOR : BUTTON_OFF_COLOR);
+			draw_by_index(button_index, is_running ? BUTTON_ON_COLOR : BUTTON_OFF_COLOR);
 			break;
 		case PANIC_BUTTON:
 			draw_by_index(button_index, PANIC_BUTTON_OFF_COLOR);
@@ -431,18 +430,25 @@ void draw_function_buttons() {
 	draw_function_button(FLOW_BUTTON);
 }
 
-void draw_pads() {
+void draw_stage(u8 column) {
+	for (u8 row = 0; row < ROW_COUNT; row++) {
+		if (column == PATTERN_MOD_COLUMN) {
+			u8 c = get_pattern_grid(c_pattern, row, PATTERN_MOD_COLUMN);
+			draw_button(PATTERN_MOD_GROUP, row, c);
+		} else {
+			u8 c = get_pattern_grid(c_pattern, row, stage_index(column));
+			draw_pad(row, column, c);
+		}
+	}
+}
+
+void draw_stages() {
 	if (in_settings) {
 		return;
 	}
 
-	for (int row = 0; row < ROW_COUNT; row++) {
-		u8 c = get_pattern_grid(c_pattern, row, PATTERN_MOD_COLUMN);
-		draw_button(PATTERN_MOD_GROUP, row, c);
-		for (int column = 0; column < COLUMN_COUNT; column++) {
-			c = get_pattern_grid(c_pattern, row, stage_index(column));
-			draw_pad(row, column, c);
-		}
+	for (u8 column = 0; column < STAGE_COUNT + 1; column++) {
+		draw_stage(column);
 	}
 }
 
@@ -523,7 +529,7 @@ void draw() {
 	draw_function_buttons();
 	draw_markers();
 	draw_patterns();
-	draw_pads();
+	draw_stages();
 }
 
 /***** stages *****/
@@ -737,8 +743,9 @@ void load_stages() {
 void load() {
 	clear();
 	hal_read_flash(0, (u8*)&memory, sizeof(memory));
-	draw();
 	load_stages();
+	reset_stage_orders();
+	draw();
 }
 
 void load_settings() {
@@ -751,9 +758,10 @@ void change_pattern(u8 p_index) {
 	c_pattern = p_index;
 	c_pattern_group = c_pattern / 4;
 	c_stage = c_extend = c_repeat = 0;
+	shuffle_on = pattern_shuffles[p_index];
 	clear_stages();
 	load_stages();
-	draw_patterns();
+	draw();
 }
 
 
@@ -849,7 +857,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 		} else {
 			in_settings = false;
 			draw_by_index(SETTINGS_BUTTON, BUTTON_OFF_COLOR);
-			draw_pads();
+			draw_stages();
 		}
 
 	} else if (index == RESET_BUTTON) {
@@ -889,13 +897,14 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 	} else if (index == SHUFFLE_BUTTON) {
 		if (value) {
 			shuffle_on = !shuffle_on;
+			pattern_shuffles[c_pattern] = shuffle_on;
 			draw_function_button(SHUFFLE_BUTTON);
 			if (shuffle_on) {
 				shuffle_stages();
 			} else {
 				unshuffle_stages();
 			}
-			draw_pads();
+			draw_stages();
 		}
 
 	} else if (index == FILL_BUTTON) {
@@ -945,7 +954,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			} else {
 				// change pattern on release
 				change_pattern(new_pattern);
-				draw_pads();
+				draw_stages();
 			}
 			draw_patterns();
 		}
@@ -1095,12 +1104,12 @@ void tick() {
 			if (stage.legato <= 0 && current_note != OUT_OF_RANGE) {
 				note_off();
 				if (!in_settings) {
-					draw_pad(current_note_row, current_note_column, NOTE_MARKER);
+//					draw_pad(current_note_row, current_note_column, NOTE_MARKER);
+					draw_stage(current_note_column);
 				}
 			}
 
 			u8 previous_note = current_note;
-			u8 previous_note_row = current_note_row;
 			u8 previous_note_column = current_note_column;
 			if (stage.note_count > 0 && stage.note != OUT_OF_RANGE) {
 				u8 n = get_note(stage);
@@ -1116,7 +1125,8 @@ void tick() {
 			if (stage.legato > 0 && previous_note != OUT_OF_RANGE) {
 				hal_send_midi(USBMIDI, NOTEOFF | memory.settings.midi_channel, previous_note, 0);
 				if (!in_settings) {
-					draw_pad(previous_note_row, previous_note_column, NOTE_MARKER);
+//					draw_pad(previous_note_row, previous_note_column, NOTE_MARKER);
+					draw_stage(previous_note_column);
 				}
 			}
 		}
@@ -1462,6 +1472,9 @@ void app_init(const u16 *adc_raw)
 		stages[s] = (Stage) { 0, OUT_OF_RANGE, 0, 0, 0, 0, 0, 0, 0 };
 	}
 	reset_stage_orders();
+
+	current_marker_index = 1;
+	current_marker = marker_map[current_marker_index];
 
 	// load just the settings, so we can check whether to load all patterns
 	load_settings();
