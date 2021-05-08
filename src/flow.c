@@ -337,10 +337,10 @@ void clear_pads() {
 }
 
 void draw_binary_row(u8 row, u8 value) {
-	u8 and = 1;
+	u8 nd = 1;
 	for (int column = 0; column < 8; column++) {
-		draw_pad(row, 7 - column, value & and ? WHITE : DIM_BLUE);
-		and = and << 1;
+		draw_pad(row, 7 - column, value & nd ? WHITE : DIM_BLUE);
+		nd = nd << 1;
 	}
 }
 
@@ -706,6 +706,7 @@ void clear_stages() {
 }
 
 void clear() {
+	memory.settings.version = APP_VERSION;
 	clear_stages();
 	for (int p = 0; p < PATTERN_COUNT; p++) {
 		for (int row = 0; row < ROW_COUNT; row++) {
@@ -721,6 +722,7 @@ void clear() {
 }
 
 void save() {
+	memory.settings.version = APP_VERSION;
     hal_write_flash(0, (u8*)&memory, sizeof(memory));
 }
 

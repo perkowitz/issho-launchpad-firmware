@@ -9,7 +9,7 @@
 #define COLUMN_COUNT 8
 
 /***** application constants *****/
-#define APP_VERSION 1
+#define APP_VERSION 2
 #define INTERNAL 0
 #define EXTERNAL 1
 #define OUT_OF_RANGE 255
