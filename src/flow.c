@@ -81,7 +81,7 @@ static bool in_settings = false;
 static bool song_on = false;
 static bool shuffle_on = false;
 static bool pattern_shuffles[PATTERN_COUNT] = { false, false, false, false, false, false, false, false };
-static bool fill_on = false;
+static bool jump_on = false;
 static bool water_on = false;
 static u8 current_marker = OFF_MARKER;
 static u8 current_marker_index = 0;
@@ -345,15 +345,20 @@ void draw_binary_row(u8 row, u8 value) {
 }
 
 void draw_markers() {
-	set_and_draw_button(MARKER_GROUP, 0, OFF_MARKER);
-	set_and_draw_button(MARKER_GROUP, 1, NOTE_MARKER);
-	set_and_draw_button(MARKER_GROUP, 2, SHARP_MARKER);
-	set_and_draw_button(MARKER_GROUP, 3, OCTAVE_UP_MARKER);
-	set_and_draw_button(MARKER_GROUP, 4, VELOCITY_UP_MARKER);
-	set_and_draw_button(MARKER_GROUP, 5, EXTEND_MARKER);
-	set_and_draw_button(MARKER_GROUP, 6, TIE_MARKER);
-	set_and_draw_button(MARKER_GROUP, 7, LEGATO_MARKER);
-//	draw_by_index(DISPLAY_BUTTON, current_marker);
+	if (jump_on) {
+		for (u8 offset = 0; offset < OFFSET_COUNT; offset++) {
+			set_and_draw_button(MARKER_GROUP, offset, OFF_MARKER);
+		}
+	} else {
+		set_and_draw_button(MARKER_GROUP, 0, OFF_MARKER);
+		set_and_draw_button(MARKER_GROUP, 1, NOTE_MARKER);
+		set_and_draw_button(MARKER_GROUP, 2, SHARP_MARKER);
+		set_and_draw_button(MARKER_GROUP, 3, OCTAVE_UP_MARKER);
+		set_and_draw_button(MARKER_GROUP, 4, VELOCITY_UP_MARKER);
+		set_and_draw_button(MARKER_GROUP, 5, EXTEND_MARKER);
+		set_and_draw_button(MARKER_GROUP, 6, TIE_MARKER);
+		set_and_draw_button(MARKER_GROUP, 7, LEGATO_MARKER);
+	}
 }
 
 void draw_function_button(u8 button_index) {
@@ -398,9 +403,9 @@ void draw_function_button(u8 button_index) {
 		case CLEAR_BUTTON:
 			draw_by_index(button_index, CLEAR_BUTTON_COLOR);
 			break;
-//		case FILL_BUTTON:
-//			draw_by_index(button_index, fill_on ? PERF_BUTTON_ON_COLOR : FILL_BUTTON_COLOR);
-//			break;
+		case JUMP_BUTTON:
+			draw_by_index(button_index, jump_on ? PERF_BUTTON_ON_COLOR : JUMP_BUTTON_COLOR);
+			break;
 		case SHUFFLE_BUTTON:
 			draw_by_index(button_index, shuffle_on ? PERF_BUTTON_ON_COLOR : SHUFFLE_BUTTON_COLOR);
 			break;
@@ -424,7 +429,7 @@ void draw_function_buttons() {
 	draw_function_button(CLEAR_BUTTON);
 
 	// left buttons
-	draw_function_button(FILL_BUTTON);
+	draw_function_button(JUMP_BUTTON);
 	draw_function_button(SHUFFLE_BUTTON);
 	draw_function_button(ARP_BUTTON);
 	draw_function_button(FLOW_BUTTON);
@@ -806,6 +811,12 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 		return;
 	}
 
+	if (jump_on) {
+		c_stage = column;
+		c_extend = c_repeat = 0;
+		return;
+	}
+
 	if (value) {
 		u8 previous = get_pattern_grid(c_pattern, row, stage_index(column));
 		bool turn_on = (previous != current_marker);
@@ -909,9 +920,12 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			draw_stages();
 		}
 
-	} else if (index == FILL_BUTTON) {
-		fill_on = (value > 0);
-		draw_function_button(FILL_BUTTON);
+	} else if (index == JUMP_BUTTON) {
+		if (value) {
+			jump_on = !jump_on;
+			draw_function_button(JUMP_BUTTON);
+			draw_markers();
+		}
 
 	} else if (index == WATER_BUTTON) {
 		if (value) {
@@ -963,7 +977,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 
 	} else if (group == MARKER_GROUP) {
 
-		if (value) {
+		if (value && !jump_on) {
 			u8 m = marker_map[offset];
 			u8 n = OUT_OF_RANGE;
 
@@ -1189,10 +1203,12 @@ void blink() {
 
 	static u8 blink = 0;
 
-	if (blink == 0) {
-		draw_button(MARKER_GROUP, current_marker_index, current_marker);
-	} else {
-		draw_button(MARKER_GROUP, current_marker_index, BLACK);
+	if (!jump_on) {
+		if (blink == 0) {
+			draw_button(MARKER_GROUP, current_marker_index, current_marker);
+		} else {
+			draw_button(MARKER_GROUP, current_marker_index, BLACK);
+		}
 	}
 
 	blink = 1 - blink;

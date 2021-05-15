@@ -9,7 +9,7 @@
 #define COLUMN_COUNT 8
 
 /***** application constants *****/
-#define APP_VERSION 2
+#define APP_VERSION 3
 #define INTERNAL 0
 #define EXTERNAL 1
 #define OUT_OF_RANGE 255
@@ -71,7 +71,7 @@
 #define CLEAR_BUTTON_COLOR DARK_GRAY
 #define SONG_BUTTON_COLOR DIM_BLUE
 #define SHUFFLE_BUTTON_COLOR DIM_BLUE
-#define FILL_BUTTON_COLOR DIM_BLUE
+#define JUMP_BUTTON_COLOR DIM_BLUE
 #define PERF_BUTTON_ON_COLOR WHITE
 #define PLAYING_NOTE_COLOR WHITE
 #define PATTERN_COLOR_1 DIM_BLUE
@@ -91,7 +91,7 @@
 #define CLEAR_BUTTON 98
 
 // left buttons
-#define FILL_BUTTON 10
+#define JUMP_BUTTON 10
 #define SHUFFLE_BUTTON 20
 #define ARP_BUTTON 30
 #define FLOW_BUTTON 40
