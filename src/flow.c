@@ -78,7 +78,7 @@ static u8 warning_blink = 0;
 
 static bool is_running = false;
 static bool in_settings = false;
-static bool song_on = false;
+static bool flow_on = false;
 static bool shuffle_on = false;
 static bool pattern_shuffles[PATTERN_COUNT] = { false, false, false, false, false, false, false, false };
 static bool jump_on = false;
@@ -102,6 +102,9 @@ static u8 c_extend = 0;
 static int c_measure = 0;
 static u8 c_beat = 0;
 static u8 c_tick = 0;
+
+static u8 flow_index = 0;
+static u8 flow1[8] = { 0, 1, 0, 2, 0, 1, 0, 3 };
 
 
 /***** helper functions *****/
@@ -336,6 +339,14 @@ void clear_pads() {
 	}
 }
 
+void clear_buttons() {
+	for (u8 group = 0; group < 4; group++) {
+		for (u8 offset = 0; offset < 8; offset++) {
+			draw_button(group, offset, BLACK);
+		}
+	}
+}
+
 void draw_binary_row(u8 row, u8 value) {
 	u8 nd = 1;
 	for (int column = 0; column < 8; column++) {
@@ -411,9 +422,9 @@ void draw_function_button(u8 button_index) {
 			break;
 //		case ARP_BUTTON:
 //			break;
-//		case FLOW_BUTTON:
-//			draw_by_index(button_index, song_on ? PERF_BUTTON_ON_COLOR : FLOW_BUTTON_COLOR);
-//			break;
+		case FLOW_BUTTON:
+			draw_by_index(button_index, flow_on ? PERF_BUTTON_ON_COLOR : FLOW_BUTTON_COLOR);
+			break;
 	}
 }
 
@@ -498,22 +509,12 @@ void draw_patterns() {
 		}
 
 	}
-//	for (int offset = PATTERNS_OFFSET_LO; offset <= PATTERNS_OFFSET_HI; offset++) {
-//		u8 p = offset - PATTERNS_OFFSET_LO;
-//		if (c_pattern_group == 0) {
-//			draw_button(PATTERNS_GROUP, offset, p == c_pattern ? PATTERN_SELECTED_COLOR_1 : PATTERN_COLOR_1);
-//		} else {
-//			draw_button(PATTERNS_GROUP, offset, (p + 4) == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
-//		}
-//	}
 }
 
 void draw_water() {
-	for (u8 group = 0; group < 4; group++) {
-		for (u8 offset = 0; offset < 8; offset++) {
-			draw_button(group, offset, BLACK);
-		}
-	}
+	clear_buttons();
+	draw_patterns();
+//	draw_function_buttons();
 	Color c;
 	for (u8 row = 0; row < ROW_COUNT; row++) {
 		for (u8 column = 0; column < COLUMN_COUNT; column++) {
@@ -531,10 +532,12 @@ void draw_water() {
 }
 
 void draw() {
-	draw_function_buttons();
-	draw_markers();
-	draw_patterns();
-	draw_stages();
+	if (!water_on) {
+		draw_function_buttons();
+		draw_markers();
+		draw_patterns();
+		draw_stages();
+	}
 }
 
 /***** stages *****/
@@ -676,6 +679,10 @@ void copy_pattern(u8 from_pattern, u8 to_pattern) {
 	}
 }
 
+/**
+ * get_first_pattern returns the first pattern when patterns are combined (length > 1).
+ * @return the index of the first pattern
+ */
 u8 get_first_pattern() {
 	if (length == 2) {
 		return c_pattern - c_pattern % 2;
@@ -687,7 +694,12 @@ u8 get_first_pattern() {
 	return c_pattern;
 }
 
-u8 get_next_pattern() {
+/**
+ * get_continue_pattern returns the next pattern
+ * when patterns are combined (length > 1).
+ * @return the index of the next pattern
+ */
+u8 get_continue_pattern() {
 	u8 f = get_first_pattern();
 	if (length == 2) {
 		return f + (c_pattern + 1) % 2;
@@ -699,6 +711,19 @@ u8 get_next_pattern() {
 	else {
 		return c_pattern;
 	}
+}
+
+/**
+ * get_next_pattern returns the next pattern when patterns
+ * are being sequenced over multiple measures (flow = true).
+ * @return the index of the next pattern
+ */
+u8 get_next_pattern() {
+	if (flow_on) {
+		flow_index = (flow_index + 1) % 8;
+		return flow1[flow_index] + c_pattern_group * 4;
+	}
+	return c_pattern;
 }
 
 
@@ -903,8 +928,12 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 
 	} else if (index == FLOW_BUTTON) {
 		if (value) {
-			song_on = !song_on;
-			draw_function_button(FLOW_BUTTON);
+			flow_on = !flow_on;
+			if (flow_on) {
+				flow_index = 0;
+				// don't change pattern yet; wait for the next reset
+			}
+			draw();
 		}
 
 	} else if (index == SHUFFLE_BUTTON) {
@@ -970,7 +999,6 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			} else {
 				// change pattern on release
 				change_pattern(new_pattern);
-				draw_stages();
 			}
 			draw_patterns();
 		}
@@ -1092,7 +1120,12 @@ void tick() {
 		// reset=1: reset every measure; reset=2: every other measure
 		if (c_beat == 0 && c_tick == 0) {
 			if (reset == 1 || (reset == 2 && c_measure % 2 == 0)) {
-				u8 np = get_first_pattern();
+				u8 np = c_pattern;
+				if (flow_on) {
+					np = get_next_pattern();
+				} else {
+					np = get_first_pattern();
+				}
 				if (np != c_pattern) {
 					change_pattern(np);
 				}
@@ -1178,7 +1211,7 @@ void tick() {
 				c_stage = (c_stage + 1) % STAGE_COUNT;
 			}
 			if (c_stage == 0) {
-				u8 np = get_next_pattern();
+				u8 np = get_continue_pattern();
 				if (np != c_pattern) {
 					change_pattern(np);
 				}
