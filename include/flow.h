@@ -9,7 +9,8 @@
 #define COLUMN_COUNT 8
 
 /***** application constants *****/
-#define APP_VERSION 2
+#define FLOW_APP_ID = 0
+#define APP_VERSION 3
 #define INTERNAL 0
 #define EXTERNAL 1
 #define OUT_OF_RANGE 255
@@ -24,6 +25,7 @@
 #define BEATS_PER_MEASURE 4
 #define TICKS_PER_BEAT 24
 #define TICKS_PER_16TH (TICKS_PER_BEAT/4)
+#define FLOW_LENGTH 8
 
 // stage modifiers
 #define DEFAULT_OCTAVE 5
@@ -44,6 +46,8 @@
 #define NOTE_MARKER SKY_BLUE
 #define SHARP_MARKER CYAN
 #define FLAT_MARKER DIM_CYAN
+//#define OCTAVE_UP_MARKER GRAY_GREEN
+//#define OCTAVE_DOWN_MARKER DIM_GRAY_GREEN
 #define OCTAVE_UP_MARKER ORANGE
 #define OCTAVE_DOWN_MARKER DIM_ORANGE
 #define VELOCITY_UP_MARKER GREEN
@@ -71,7 +75,8 @@
 #define CLEAR_BUTTON_COLOR DARK_GRAY
 #define SONG_BUTTON_COLOR DIM_BLUE
 #define SHUFFLE_BUTTON_COLOR DIM_BLUE
-#define FILL_BUTTON_COLOR DIM_BLUE
+#define JUMP_BUTTON_COLOR DIM_BLUE
+#define FLOW_BUTTON_COLOR SKY_BLUE
 #define PERF_BUTTON_ON_COLOR WHITE
 #define PLAYING_NOTE_COLOR WHITE
 #define PATTERN_COLOR_1 DIM_BLUE
@@ -79,6 +84,16 @@
 #define PATTERN_SELECTED_COLOR_1 SKY_BLUE
 #define PATTERN_SELECTED_COLOR_2 MAGENTA
 #define WATER_BUTTON_COLOR SKY_BLUE
+#define STATUS_LIGHT SKY_BLUE
+#define STATUS_LIGHT_DIM DIM_BLUE
+#define FLOW1_0_COLOR DARK_GRAY
+#define FLOW1_1_COLOR PATTERN_COLOR_1
+#define FLOW1_2_COLOR PATTERN_SELECTED_COLOR_1
+#define FLOW1_3_COLOR WHITE
+#define FLOW2_0_COLOR DARK_GRAY
+#define FLOW2_1_COLOR PATTERN_COLOR_2
+#define FLOW2_2_COLOR PATTERN_SELECTED_COLOR_2
+#define FLOW2_3_COLOR WHITE
 
 // top buttons
 #define PLAY_BUTTON 91
@@ -91,7 +106,7 @@
 #define CLEAR_BUTTON 98
 
 // left buttons
-#define FILL_BUTTON 10
+#define JUMP_BUTTON 10
 #define SHUFFLE_BUTTON 20
 #define ARP_BUTTON 30
 #define FLOW_BUTTON 40
@@ -102,10 +117,12 @@
 
 #define SETTINGS_MIDI_ROW_1 1
 #define SETTINGS_MIDI_ROW_2 0
-#define SETTINGS_VERSION_ROW 5
-#define SETTINGS_MISC_ROW 4
+#define SETTINGS_VERSION_ROW 3
+#define SETTINGS_MISC_ROW 2
 #define SETTINGS_AUTO_LOAD_COLUMN 0
 #define SETTINGS_PATTERN_ROW 7
+#define SETTINGS_FLOW1_ROW 6
+#define SETTINGS_FLOW2_ROW 5
 #define PATTERNS_GROUP LEFT
 #define PATTERNS_OFFSET_LO 4
 #define PATTERNS_OFFSET_HI 7
@@ -134,6 +151,7 @@ typedef struct Pattern {
 } Pattern;
 
 typedef struct Settings {
+	u8 app_id;
 	u8 version;
 	u8 auto_load;
 	u8 tempo;
@@ -148,6 +166,8 @@ typedef struct Settings {
 
 typedef struct Memory {
 	Settings settings;
+	u8 flow1[FLOW_LENGTH];
+	u8 flow2[FLOW_LENGTH];
 	Pattern patterns[PATTERN_COUNT];
 } Memory;
 
@@ -162,7 +182,7 @@ typedef struct Color {
 #define C_HI 63
 #define C_MID 12
 #define C_LO 2
-#define PSIZE 23
+#define PSIZE 25
 
 #define BLACK 0
 #define DARK_GRAY 1
@@ -187,6 +207,8 @@ typedef struct Color {
 #define SKY_BLUE 20
 #define PINK 21
 #define DIM_PINK 22
+#define GRAY_GREEN 23
+#define DIM_GRAY_GREEN 24
 
 
 /***** function declarations *****/
