@@ -9,6 +9,7 @@
 #define COLUMN_COUNT 8
 
 /***** application constants *****/
+#define FLOW_APP_ID = 0
 #define APP_VERSION 3
 #define INTERNAL 0
 #define EXTERNAL 1
@@ -85,6 +86,14 @@
 #define WATER_BUTTON_COLOR SKY_BLUE
 #define STATUS_LIGHT SKY_BLUE
 #define STATUS_LIGHT_DIM DIM_BLUE
+#define FLOW1_0_COLOR DARK_GRAY
+#define FLOW1_1_COLOR PATTERN_COLOR_1
+#define FLOW1_2_COLOR PATTERN_SELECTED_COLOR_1
+#define FLOW1_3_COLOR WHITE
+#define FLOW2_0_COLOR DARK_GRAY
+#define FLOW2_1_COLOR PATTERN_COLOR_2
+#define FLOW2_2_COLOR PATTERN_SELECTED_COLOR_2
+#define FLOW2_3_COLOR WHITE
 
 // top buttons
 #define PLAY_BUTTON 91
@@ -108,10 +117,12 @@
 
 #define SETTINGS_MIDI_ROW_1 1
 #define SETTINGS_MIDI_ROW_2 0
-#define SETTINGS_VERSION_ROW 5
-#define SETTINGS_MISC_ROW 4
+#define SETTINGS_VERSION_ROW 3
+#define SETTINGS_MISC_ROW 2
 #define SETTINGS_AUTO_LOAD_COLUMN 0
 #define SETTINGS_PATTERN_ROW 7
+#define SETTINGS_FLOW1_ROW 6
+#define SETTINGS_FLOW2_ROW 5
 #define PATTERNS_GROUP LEFT
 #define PATTERNS_OFFSET_LO 4
 #define PATTERNS_OFFSET_HI 7
@@ -140,6 +151,7 @@ typedef struct Pattern {
 } Pattern;
 
 typedef struct Settings {
+	u8 app_id;
 	u8 version;
 	u8 auto_load;
 	u8 tempo;
@@ -154,6 +166,8 @@ typedef struct Settings {
 
 typedef struct Memory {
 	Settings settings;
+	u8 flow1[FLOW_LENGTH];
+	u8 flow2[FLOW_LENGTH];
 	Pattern patterns[PATTERN_COUNT];
 } Memory;
 

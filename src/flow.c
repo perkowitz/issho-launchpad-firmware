@@ -69,7 +69,6 @@ const u8 random_markers[RANDOM_MARKER_COUNT] = {
 static unsigned long app_clock = 0;
 
 static Memory memory;
-//static Pattern patterns[PATTERN_COUNT];
 static u8 c_pattern = 0;
 static u8 c_pattern_group = 0;
 
@@ -106,6 +105,8 @@ static u8 c_tick = 0;
 static u8 flow_index = 0;
 static u8 flow1[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
 static u8 flow2[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
+static u8 flow1_colors[4] = { FLOW1_0_COLOR, FLOW1_1_COLOR, FLOW1_2_COLOR, FLOW1_3_COLOR };
+static u8 flow2_colors[4] = { FLOW2_0_COLOR, FLOW2_1_COLOR, FLOW2_2_COLOR, FLOW2_3_COLOR };
 
 
 /***** helper functions *****/
@@ -498,6 +499,12 @@ void draw_settings() {
 	for (int column = 4; column < COLUMN_COUNT; column++) {
 		draw_pad(SETTINGS_PATTERN_ROW, column, column == c_pattern ? PATTERN_SELECTED_COLOR_2 : PATTERN_COLOR_2);
 	}
+
+	// flow sequences
+	for (int column = 0; column < COLUMN_COUNT; column++) {
+		draw_pad(SETTINGS_FLOW1_ROW, column, flow1_colors[memory.flow1[column]]);
+		draw_pad(SETTINGS_FLOW2_ROW, column, flow2_colors[memory.flow2[column]]);
+	}
 }
 
 void draw_patterns() {
@@ -722,7 +729,11 @@ u8 get_continue_pattern() {
 u8 get_next_pattern() {
 	if (flow_on) {
 		flow_index = (flow_index + 1) % 8;
-		return flow1[flow_index] + c_pattern_group * 4;
+		if (c_pattern_group == 1) {
+			return memory.flow2[flow_index] + 4;
+		} else {
+			return memory.flow1[flow_index];
+		}
 	}
 	return c_pattern;
 }
@@ -738,6 +749,8 @@ void clear_stages() {
 
 void clear() {
 	memory.settings.version = APP_VERSION;
+	memcpy(&memory.flow1, &flow1, sizeof(memory.flow1));
+	memcpy(&memory.flow2, &flow2, sizeof(memory.flow2));
 	clear_stages();
 	for (int p = 0; p < PATTERN_COUNT; p++) {
 		for (int row = 0; row < ROW_COUNT; row++) {
@@ -814,6 +827,14 @@ void on_settings(u8 index, u8 row, u8 column, u8 value) {
 			change_pattern(column);
 			draw_settings();
 			draw_patterns();
+
+		} else if (row == SETTINGS_FLOW1_ROW) {
+			memory.flow1[column] = (memory.flow1[column] + 1) % 4;
+			draw_settings();
+
+		} else if (row == SETTINGS_FLOW2_ROW) {
+			memory.flow2[column] = (memory.flow2[column] + 1) % 4;
+			draw_settings();
 
 		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_AUTO_LOAD_COLUMN) {
 			memory.settings.auto_load = !memory.settings.auto_load;
