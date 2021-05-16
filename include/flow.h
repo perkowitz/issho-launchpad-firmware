@@ -44,6 +44,8 @@
 #define NOTE_MARKER SKY_BLUE
 #define SHARP_MARKER CYAN
 #define FLAT_MARKER DIM_CYAN
+//#define OCTAVE_UP_MARKER GRAY_GREEN
+//#define OCTAVE_DOWN_MARKER DIM_GRAY_GREEN
 #define OCTAVE_UP_MARKER ORANGE
 #define OCTAVE_DOWN_MARKER DIM_ORANGE
 #define VELOCITY_UP_MARKER GREEN
@@ -80,6 +82,8 @@
 #define PATTERN_SELECTED_COLOR_1 SKY_BLUE
 #define PATTERN_SELECTED_COLOR_2 MAGENTA
 #define WATER_BUTTON_COLOR SKY_BLUE
+#define STATUS_LIGHT SKY_BLUE
+#define STATUS_LIGHT_DIM DIM_BLUE
 
 // top buttons
 #define PLAY_BUTTON 91
@@ -163,7 +167,7 @@ typedef struct Color {
 #define C_HI 63
 #define C_MID 12
 #define C_LO 2
-#define PSIZE 23
+#define PSIZE 25
 
 #define BLACK 0
 #define DARK_GRAY 1
@@ -188,6 +192,8 @@ typedef struct Color {
 #define SKY_BLUE 20
 #define PINK 21
 #define DIM_PINK 22
+#define GRAY_GREEN 23
+#define DIM_GRAY_GREEN 24
 
 
 /***** function declarations *****/

@@ -1103,34 +1103,42 @@ void tick() {
 		// flash the status light in time
 		if (c_beat == 0 && c_tick == 0) {
 //			status_light(rainbow[c_measure % 8]);
-			status_light(WHITE);
+			status_light(STATUS_LIGHT);
 		} else if (c_tick == 0) {
-			status_light(DARK_GRAY);
+			status_light(STATUS_LIGHT_DIM);
 		} else {
 			status_light(BLACK);
 		}
 
 		// update water if it's on
 		if (water_on) {
-//			draw_droplet();
 			draw_water();
+		}
+
+		// if at beginning of pattern, we might change pattern (if length > 1)
+		if (c_stage == 0) {
+			u8 np = get_continue_pattern();
+			if (np != c_pattern) {
+				change_pattern(np);
+			}
+			c_stage = c_repeat = c_extend = 0;
 		}
 
 		// reset at the beginning of the measure (if reset is set)
 		// reset=1: reset every measure; reset=2: every other measure
-		if (c_beat == 0 && c_tick == 0) {
-			if (reset == 1 || (reset == 2 && c_measure % 2 == 0)) {
-				u8 np = c_pattern;
-				if (flow_on) {
-					np = get_next_pattern();
-				} else {
-					np = get_first_pattern();
-				}
-				if (np != c_pattern) {
-					change_pattern(np);
-				}
-				c_stage = c_repeat = c_extend = 0;
+		if ((c_beat == 0 && c_tick == 0 && reset == 1) ||
+				(c_beat == 0 && c_tick == 0 && reset == 2 && c_measure %2 == 0) ||
+				(c_stage == 0 && reset == 0)) {
+			u8 np = c_pattern;
+			if (flow_on) {
+				np = get_next_pattern();
+			} else {
+				np = get_first_pattern();
 			}
+			if (np != c_pattern) {
+				change_pattern(np);
+			}
+			c_stage = c_repeat = c_extend = 0;
 		}
 
 		// copy the stage and apply randomness to it if needed.
@@ -1210,13 +1218,13 @@ void tick() {
 			while (stages[stage_index(c_stage)].skip > 0 && c_stage != previous_stage) {
 				c_stage = (c_stage + 1) % STAGE_COUNT;
 			}
-			if (c_stage == 0) {
-				u8 np = get_continue_pattern();
-				if (np != c_pattern) {
-					change_pattern(np);
-				}
-				c_stage = c_repeat = c_extend = 0;
-			}
+//			if (c_stage == 0) {
+//				u8 np = get_continue_pattern();
+//				if (np != c_pattern) {
+//					change_pattern(np);
+//				}
+//				c_stage = c_repeat = c_extend = 0;
+//			}
 		}
 
 
@@ -1489,6 +1497,8 @@ void colors_init() {
 	palette[SKY_BLUE] = (Color){8, 18, 63};
 	palette[PINK] = (Color){32, 13, 22};
 	palette[DIM_PINK] = (Color){16, 7, 11};
+	palette[GRAY_GREEN] = (Color){18, 32, 22};
+	palette[DIM_GRAY_GREEN] = (Color){10, 22, 14};
 
 	rainbow[0] = WHITE;
 	rainbow[1] = RED;
