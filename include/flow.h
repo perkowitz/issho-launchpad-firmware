@@ -24,6 +24,7 @@
 #define BEATS_PER_MEASURE 4
 #define TICKS_PER_BEAT 24
 #define TICKS_PER_16TH (TICKS_PER_BEAT/4)
+#define FLOW_LENGTH 8
 
 // stage modifiers
 #define DEFAULT_OCTAVE 5

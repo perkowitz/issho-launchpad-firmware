@@ -104,7 +104,8 @@ static u8 c_beat = 0;
 static u8 c_tick = 0;
 
 static u8 flow_index = 0;
-static u8 flow1[8] = { 0, 1, 0, 2, 0, 1, 0, 3 };
+static u8 flow1[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
+static u8 flow2[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
 
 
 /***** helper functions *****/
@@ -930,7 +931,7 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 		if (value) {
 			flow_on = !flow_on;
 			if (flow_on) {
-				flow_index = 0;
+				flow_index = FLOW_LENGTH - 1;
 				// don't change pattern yet; wait for the next reset
 			}
 			draw();
