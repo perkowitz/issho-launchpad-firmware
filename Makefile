@@ -2,7 +2,11 @@ BUILDDIR = build
 
 INCLUDES += -Iinclude -I
 
-LIB = lib/launchpad_pro.a
+LIB = lib/launchpad_pro.a $(BUILDDIR)/src/issho.o 
+
+ISSHO_SOURCE = src/issho.c
+#SOURCES += src/flow.c src/issho.c 
+#OBJECTS = $(addprefix $(BUILDDIR)/, $(addsuffix .o, $(basename $(SOURCES))))
 
 OUTPUT_PREFIX = $(BUILDDIR)/issho_launchpad_
 
@@ -29,7 +33,7 @@ LDFLAGS += -T$(LDSCRIPT) -u _start -u _Minimum_Stack_Size  -mcpu=cortex-m3 -mthu
 .SECONDARY: $(wildcard *.elf) $(wildcard *.hex)
 
 
-all: flow poke reversi
+all: flow 
 
 flow: $(OUTPUT_PREFIX)flow.syx
 
@@ -44,7 +48,7 @@ $(HEXTOSYX):
 
 # simulate a source
 $(BUILDDIR)/%.simulator: src/%.c
-	$(HOST_GCC) -g3 -O0 -std=c99 -Iinclude $(TOOLS)/simulator.c $< -o $@
+	$(HOST_GCC) -g3 -O0 -std=c99 -Iinclude $(TOOLS)/simulator.c $(ISSHO_SOURCE) $< -o $@
 	$@
 
 # build a .syx from a .hex
@@ -55,14 +59,22 @@ $(OUTPUT_PREFIX)%.syx: $(OUTPUT_PREFIX)%.hex $(HEXTOSYX) $(BUILDDIR)/%.simulator
 %.hex: %.elf
 	$(OBJCOPY) -O ihex $< $@
 
+# build the elf file for flow
+$(OUTPUT_PREFIX)flow.elf: $(BUILDDIR)/src/flow.o $(LIB)  
+	$(LD) $(LDFLAGS) -o $@ $?
+
 # build a .elf file from a .o
-$(OUTPUT_PREFIX)%.elf: $(BUILDDIR)/src/%.o
-	$(LD) $(LDFLAGS) -o $@ $< $(LIB)
+#$(OUTPUT_PREFIX)%.elf: $(BUILDDIR)/src/%.o 
+#	$(LD) $(LDFLAGS) -o $@ $< $(LIB)
+
+#DEPENDS := $(OBJECTS:.o=.d)
+#
+#-include $(DEPENDS)
 
 # build a .o from a .c
-$(BUILDDIR)/%.o: %.c
+$(BUILDDIR)/%.o: %.c  
 	mkdir -p $(dir $@)
-	$(CC) -c $(CFLAGS) -MMD -o $@ $<
+	$(CC) -c $(CFLAGS) -MMD -o $@ $< 
 
 
 

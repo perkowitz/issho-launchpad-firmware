@@ -36,6 +36,7 @@
 //______________________________________________________________________________
 
 #include "app.h"
+#include "issho.h"
 #include "flow.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +52,7 @@ static u8 hw_buttons[BUTTON_COUNT] = {0};
 static u8 clock_source = INTERNAL;
 static Stage stages[GRID_COLUMNS];
 static Color palette[PSIZE];
-static u8 rainbow[8];
+//static u8 rainbow[8];
 const u8 note_map[8] = { 0, 2, 4, 5, 7, 9, 11, 12 };  // maps the major scale to note intervals
 const u8 marker_map[8] = { OFF_MARKER, NOTE_MARKER, SHARP_MARKER, OCTAVE_UP_MARKER,
 		VELOCITY_UP_MARKER, EXTEND_MARKER, TIE_MARKER, LEGATO_MARKER };
@@ -151,6 +152,7 @@ void debug(u8 index, u8 level) {
 #endif
 
 /***** midi *****/
+
 
 void midi_note(u8 channel, u8 note, u8 velocity) {
 	send_midi(NOTEON | channel, note, velocity);
@@ -1491,47 +1493,47 @@ void app_timer_event()
 
 /***** initialization *****/
 
-void colors_init() {
-
-	palette[BLACK] = (Color){0, 0, 0};
-	palette[DARK_GRAY] = (Color){C_LO, C_LO, C_LO};
-	palette[WHITE] = (Color){C_HI, C_HI, C_HI};
-	palette[GRAY] = (Color){C_MID, C_MID, C_MID};
-
-	palette[RED] = (Color){C_HI, 0, 0};
-	palette[ORANGE] = (Color){63, 20, 0};
-	palette[YELLOW] = (Color){C_HI, C_HI, 0};
-	palette[GREEN] = (Color){0, C_HI, 0};
-	palette[CYAN] = (Color){0, C_HI, C_HI};
-	palette[BLUE] = (Color){0, 0, C_HI};
-	palette[PURPLE] = (Color){10, 0, 63};
-	palette[MAGENTA] = (Color){C_HI, 0, C_HI};
-
-	palette[DIM_RED] = (Color){C_MID, 0, 0};
-	palette[DIM_ORANGE] = (Color){20, 8, 0};
-	palette[DIM_YELLOW] = (Color){C_MID, C_MID, 0};
-	palette[DIM_GREEN] = (Color){0, C_MID, 0};
-	palette[DIM_CYAN] = (Color){0, C_MID, C_MID};
-	palette[DIM_BLUE] = (Color){0, 0, C_MID};
-	palette[DIM_PURPLE] = (Color){4, 0, 20};
-	palette[DIM_MAGENTA] = (Color){C_MID, 0, C_MID};
-
-	palette[SKY_BLUE] = (Color){8, 18, 63};
-	palette[PINK] = (Color){32, 13, 22};
-	palette[DIM_PINK] = (Color){16, 7, 11};
-	palette[GRAY_GREEN] = (Color){18, 32, 22};
-	palette[DIM_GRAY_GREEN] = (Color){10, 22, 14};
-
-	rainbow[0] = WHITE;
-	rainbow[1] = RED;
-	rainbow[2] = ORANGE;
-	rainbow[3] = YELLOW;
-	rainbow[4] = GREEN;
-	rainbow[5] = CYAN;
-	rainbow[6] = BLUE;
-	rainbow[7] = PURPLE;
-
-}
+//void colors_init() {
+//
+//	palette[BLACK] = (Color){0, 0, 0};
+//	palette[DARK_GRAY] = (Color){C_LO, C_LO, C_LO};
+//	palette[WHITE] = (Color){C_HI, C_HI, C_HI};
+//	palette[GRAY] = (Color){C_MID, C_MID, C_MID};
+//
+//	palette[RED] = (Color){C_HI, 0, 0};
+//	palette[ORANGE] = (Color){63, 20, 0};
+//	palette[YELLOW] = (Color){C_HI, C_HI, 0};
+//	palette[GREEN] = (Color){0, C_HI, 0};
+//	palette[CYAN] = (Color){0, C_HI, C_HI};
+//	palette[BLUE] = (Color){0, 0, C_HI};
+//	palette[PURPLE] = (Color){10, 0, 63};
+//	palette[MAGENTA] = (Color){C_HI, 0, C_HI};
+//
+//	palette[DIM_RED] = (Color){C_MID, 0, 0};
+//	palette[DIM_ORANGE] = (Color){20, 8, 0};
+//	palette[DIM_YELLOW] = (Color){C_MID, C_MID, 0};
+//	palette[DIM_GREEN] = (Color){0, C_MID, 0};
+//	palette[DIM_CYAN] = (Color){0, C_MID, C_MID};
+//	palette[DIM_BLUE] = (Color){0, 0, C_MID};
+//	palette[DIM_PURPLE] = (Color){4, 0, 20};
+//	palette[DIM_MAGENTA] = (Color){C_MID, 0, C_MID};
+//
+//	palette[SKY_BLUE] = (Color){8, 18, 63};
+//	palette[PINK] = (Color){32, 13, 22};
+//	palette[DIM_PINK] = (Color){16, 7, 11};
+//	palette[GRAY_GREEN] = (Color){18, 32, 22};
+//	palette[DIM_GRAY_GREEN] = (Color){10, 22, 14};
+//
+//	rainbow[0] = WHITE;
+//	rainbow[1] = RED;
+//	rainbow[2] = ORANGE;
+//	rainbow[3] = YELLOW;
+//	rainbow[4] = GREEN;
+//	rainbow[5] = CYAN;
+//	rainbow[6] = BLUE;
+//	rainbow[7] = PURPLE;
+//
+//}
 
 void settings_init() {
 	memory.settings.version = APP_VERSION;
@@ -1546,7 +1548,7 @@ void app_init(const u16 *adc_raw)
 {
 
 	// initialize some things
-	colors_init();
+	colors_init(palette);
 	settings_init();
 	warning(SKY_BLUE);
 
