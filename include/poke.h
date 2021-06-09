@@ -35,43 +35,6 @@
 #define TWO_PLAYER_HALF 1
 
 
-/***** colors *****/
-
-typedef struct Color {
-	u8 red;
-	u8 green;
-	u8 blue;
-} Color;
-
-#define C_HI 63
-#define C_MID 12
-#define C_LO 2
-#define PSIZE 23
-
-#define BLACK 0
-#define DARK_GRAY 1
-#define GRAY 2
-#define WHITE 3
-#define RED 4
-#define ORANGE 5
-#define YELLOW 6
-#define GREEN 7
-#define CYAN 8
-#define BLUE 9
-#define PURPLE 10
-#define MAGENTA 11
-#define DIM_RED 12
-#define DIM_ORANGE 13
-#define DIM_YELLOW 14
-#define DIM_GREEN 15
-#define DIM_CYAN 16
-#define DIM_BLUE 17
-#define DIM_PURPLE 18
-#define DIM_MAGENTA 19
-#define SKY_BLUE 20
-#define PINK 21
-#define DIM_PINK 22
-
 
 /***** function declarations *****/
 

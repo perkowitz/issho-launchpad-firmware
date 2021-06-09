@@ -52,7 +52,6 @@ static u8 hw_buttons[BUTTON_COUNT] = {0};
 static u8 clock_source = INTERNAL;
 static Stage stages[GRID_COLUMNS];
 static Color palette[PSIZE];
-//static u8 rainbow[8];
 const u8 note_map[8] = { 0, 2, 4, 5, 7, 9, 11, 12 };  // maps the major scale to note intervals
 const u8 marker_map[8] = { OFF_MARKER, NOTE_MARKER, SHARP_MARKER, OCTAVE_UP_MARKER,
 		VELOCITY_UP_MARKER, EXTEND_MARKER, TIE_MARKER, LEGATO_MARKER };
@@ -109,9 +108,6 @@ static u8 flow2[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
 static u8 flow1_colors[4] = { FLOW1_0_COLOR, FLOW1_1_COLOR, FLOW1_2_COLOR, FLOW1_3_COLOR };
 static u8 flow2_colors[4] = { FLOW2_0_COLOR, FLOW2_1_COLOR, FLOW2_2_COLOR, FLOW2_3_COLOR };
 static bool midi_ports[3] = { true, true, false };
-#define PORT_DIN 0
-#define PORT_USB 1
-#define PORT_STANDALONE 2
 
 
 /**

@@ -5,9 +5,16 @@
 #define BUTTON_COUNT 100
 #define ROW_COUNT 8
 #define COLUMN_COUNT 8
+#define PORT_DIN 0
+#define PORT_USB 1
+#define PORT_STANDALONE 2
+
+#define MIDI_ALL_NOTES_OFF_CC 120
+#define MIDI_RESET_ALL_CONTROLLERS 121
+
+
 
 /***** colors *****/
-
 typedef struct Color {
 	u8 red;
 	u8 green;

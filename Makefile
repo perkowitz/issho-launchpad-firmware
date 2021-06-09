@@ -2,7 +2,8 @@ BUILDDIR = build
 
 INCLUDES += -Iinclude -I
 
-LIB = lib/launchpad_pro.a $(BUILDDIR)/src/issho.o 
+LIB = lib/launchpad_pro.a  
+ISSHO_LIB = $(BUILDDIR)/src/issho.o
 
 ISSHO_SOURCE = src/issho.c
 #SOURCES += src/flow.c src/issho.c 
@@ -33,13 +34,12 @@ LDFLAGS += -T$(LDSCRIPT) -u _start -u _Minimum_Stack_Size  -mcpu=cortex-m3 -mthu
 .SECONDARY: $(wildcard *.elf) $(wildcard *.hex)
 
 
-all: flow 
+all: flow poke
 
 flow: $(OUTPUT_PREFIX)flow.syx
 
 poke: $(OUTPUT_PREFIX)poke.syx
 
-reversi: $(OUTPUT_PREFIX)reversi.syx
 
 
 # build the tool for conversion of ELF files to sysex, ready for upload to the unit
@@ -60,7 +60,11 @@ $(OUTPUT_PREFIX)%.syx: $(OUTPUT_PREFIX)%.hex $(HEXTOSYX) $(BUILDDIR)/%.simulator
 	$(OBJCOPY) -O ihex $< $@
 
 # build the elf file for flow
-$(OUTPUT_PREFIX)flow.elf: $(BUILDDIR)/src/flow.o $(LIB)  
+$(OUTPUT_PREFIX)flow.elf: $(BUILDDIR)/src/flow.o $(LIB) $(ISSHO_LIB) 
+	$(LD) $(LDFLAGS) -o $@ $?
+
+# build the elf file for poke
+$(OUTPUT_PREFIX)poke.elf: $(BUILDDIR)/src/poke.o $(LIB) $(ISSHO_LIB)
 	$(LD) $(LDFLAGS) -o $@ $?
 
 # build a .elf file from a .o
