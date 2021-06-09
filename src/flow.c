@@ -108,11 +108,11 @@ static u8 flow1[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
 static u8 flow2[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
 static u8 flow1_colors[4] = { FLOW1_0_COLOR, FLOW1_1_COLOR, FLOW1_2_COLOR, FLOW1_3_COLOR };
 static u8 flow2_colors[4] = { FLOW2_0_COLOR, FLOW2_1_COLOR, FLOW2_2_COLOR, FLOW2_3_COLOR };
+static bool midi_ports[3] = { true, true, false };
+#define PORT_DIN 0
+#define PORT_USB 1
+#define PORT_STANDALONE 2
 
-
-/***** helper functions *****/
-
-#define send_midi(s, d1, d2)    (hal_send_midi(MIDI_OUT_PORT, (s), (d1), (d2)))
 
 /**
  * plot_led lights up a hardware button with a color.
@@ -151,8 +151,32 @@ void debug(u8 index, u8 level) {
 }
 #endif
 
+
 /***** midi *****/
 
+bool get_port(u8 index) {
+	return midi_ports[index];
+}
+
+void set_port(u8 index, bool enabled) {
+	midi_ports[index] = enabled;
+}
+
+void flip_port(u8 index) {
+	midi_ports[index] = !midi_ports[index];
+}
+
+void send_midi(u8 status, u8 data1, u8 data2) {
+	if (get_port(PORT_DIN)) {
+		hal_send_midi(DINMIDI, status, data1, data2);
+	}
+	if (get_port(PORT_USB)) {
+		hal_send_midi(USBMIDI, status, data1, data2);
+	}
+	if (get_port(PORT_STANDALONE)) {
+		hal_send_midi(USBSTANDALONE, status, data1, data2);
+	}
+}
 
 void midi_note(u8 channel, u8 note, u8 velocity) {
 	send_midi(NOTEON | channel, note, velocity);
@@ -333,6 +357,7 @@ u8 stage_index(u8 index) {
 	return stage_orders[c_pattern].order[index];
 }
 
+
 /***** draw *****/
 
 void clear_pads() {
@@ -492,7 +517,10 @@ void draw_settings() {
 	draw_binary_row(SETTINGS_VERSION_ROW, memory.settings.version);
 
 	// auto-load button
-	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : DARK_GRAY);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : SETTINGS_AUTOLOAD_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_USB_COLUMN, get_port(PORT_USB) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_DIN_COLUMN, get_port(PORT_DIN) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_STANDALONE_COLUMN, get_port(PORT_STANDALONE) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
 
 	// patterns
 	for (int column = 0; column < 4; column++) {
@@ -570,7 +598,7 @@ u8 get_velocity(Stage stage) {
 
 void note_off() {
 	if (current_note != OUT_OF_RANGE) {
-		hal_send_midi(USBMIDI, NOTEOFF | memory.settings.midi_channel, current_note, 0);
+		send_midi(NOTEOFF | memory.settings.midi_channel, current_note, 0);
 		current_note = OUT_OF_RANGE;
 	}
 }
@@ -769,6 +797,7 @@ void clear() {
 
 void save() {
 	memory.settings.version = APP_VERSION;
+	memory.settings.midi_ports = (midi_ports[PORT_DIN] << 2) + (midi_ports[PORT_USB] << 1) + midi_ports[PORT_STANDALONE];
     hal_write_flash(0, (u8*)&memory, sizeof(memory));
 }
 
@@ -791,6 +820,9 @@ void load_stages() {
 void load() {
 	clear();
 	hal_read_flash(0, (u8*)&memory, sizeof(memory));
+	midi_ports[PORT_DIN] = memory.settings.midi_ports & 4;
+	midi_ports[PORT_USB] = memory.settings.midi_ports & 2;
+	midi_ports[PORT_STANDALONE] = memory.settings.midi_ports & 1;
 	load_stages();
 	reset_stage_orders();
 	draw();
@@ -842,6 +874,20 @@ void on_settings(u8 index, u8 row, u8 column, u8 value) {
 			memory.settings.auto_load = !memory.settings.auto_load;
 			draw_settings();
 
+		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_MIDI_USB_COLUMN) {
+			all_notes_off(memory.settings.midi_channel);
+			flip_port(PORT_USB);
+			draw_settings();
+
+		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_MIDI_DIN_COLUMN) {
+			all_notes_off(memory.settings.midi_channel);
+			flip_port(PORT_DIN);
+			draw_settings();
+
+		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_MIDI_STANDALONE_COLUMN) {
+			all_notes_off(memory.settings.midi_channel);
+			flip_port(PORT_STANDALONE);
+			draw_settings();
 		}
 
 		// if the MIDI channel changes, make sure there are no stuck notes
@@ -1140,7 +1186,7 @@ void tick() {
 		}
 
 		// if at beginning of pattern, we might change pattern (if length > 1)
-		if (c_stage == 0) {
+		if (c_stage == 0 && c_extend == 0 && c_repeat == 0) {
 			u8 np = get_continue_pattern();
 			if (np != c_pattern) {
 				change_pattern(np);
@@ -1194,7 +1240,7 @@ void tick() {
 			u8 previous_note_column = current_note_column;
 			if (stage.note_count > 0 && stage.note != OUT_OF_RANGE) {
 				u8 n = get_note(stage);
-				hal_send_midi(USBMIDI, NOTEON | memory.settings.midi_channel, n, get_velocity(stage));
+				send_midi(NOTEON | memory.settings.midi_channel, n, get_velocity(stage));
 				if (!in_settings) {
 					draw_pad(stage.note, c_stage, PLAYING_NOTE_COLOR);
 				}
@@ -1204,7 +1250,7 @@ void tick() {
 			}
 
 			if (stage.legato > 0 && previous_note != OUT_OF_RANGE) {
-				hal_send_midi(USBMIDI, NOTEOFF | memory.settings.midi_channel, previous_note, 0);
+				send_midi(NOTEOFF | memory.settings.midi_channel, previous_note, 0);
 				if (!in_settings) {
 //					draw_pad(previous_note_row, previous_note_column, NOTE_MARKER);
 					draw_stage(previous_note_column);
@@ -1319,7 +1365,7 @@ void app_surface_event(u8 type, u8 index, u8 value)
 
 
 
-//            hal_send_midi(USBMIDI, NOTEON | 0, index, value);
+//            send_midi(NOTEON | 0, index, value);
 
 
 //            // toggle it and store it off, so we can save to flash if we want to
@@ -1332,8 +1378,8 @@ void app_surface_event(u8 type, u8 index, u8 value)
 //            hal_plot_led(TYPEPAD, index, 0, 0, g_Buttons[index]);
 //
 //            // example - send MIDI
-//            hal_send_midi(USBMIDI, NOTEON | 0, index, value);
-////            hal_send_midi(DINMIDI, NOTEON | 0, index, value);
+//            send_midi(NOTEON | 0, index, value);
+////            send_midi(NOTEON | 0, index, value);
             
         }
         break;
@@ -1409,8 +1455,8 @@ void app_sysex_event(u8 port, u8 * data, u16 count)
 void app_aftertouch_event(u8 index, u8 value)
 {
     // example - send poly aftertouch to MIDI ports
-//    hal_send_midi(USBMIDI, POLYAFTERTOUCH | 0, index, value);
-//    hal_send_midi(USBMIDI, CHANNELAFTERTOUCH | 0, value, 0);
+//    send_midi(POLYAFTERTOUCH | 0, index, value);
+//    send_midi(CHANNELAFTERTOUCH | 0, value, 0);
     
     
 }
