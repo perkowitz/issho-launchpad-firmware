@@ -34,7 +34,7 @@ LDFLAGS += -T$(LDSCRIPT) -u _start -u _Minimum_Stack_Size  -mcpu=cortex-m3 -mthu
 .SECONDARY: $(wildcard *.elf) $(wildcard *.hex)
 
 
-all: flow poke
+all: flow 
 
 flow: $(OUTPUT_PREFIX)flow.syx
 

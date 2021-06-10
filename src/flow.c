@@ -103,8 +103,8 @@ static u8 c_beat = 0;
 static u8 c_tick = 0;
 
 static u8 flow_index = 0;
-static u8 flow1[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
-static u8 flow2[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
+static u8 flow1[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
+static u8 flow2[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
 static u8 flow1_colors[4] = { FLOW1_0_COLOR, FLOW1_1_COLOR, FLOW1_2_COLOR, FLOW1_3_COLOR };
 static u8 flow2_colors[4] = { FLOW2_0_COLOR, FLOW2_1_COLOR, FLOW2_2_COLOR, FLOW2_3_COLOR };
 static bool midi_ports[3] = { true, true, false };
@@ -320,6 +320,14 @@ u8 get_pattern_grid(u8 p_index, u8 row, u8 column) {
 	}
 }
 
+void draw_pattern_grid(u8 row, u8 column, u8 value) {
+	if (column == PATTERN_MOD_COLUMN) {
+		draw_button(PATTERN_MOD_GROUP, row, value);
+	} else {
+		draw_pad(row, column, value);
+	}
+}
+
 void set_grid(u8 row, u8 column, u8 value) {
 	set_pattern_grid(c_pattern, row, column, value);
 }
@@ -350,6 +358,9 @@ void reset_stage_orders() {
 }
 
 u8 stage_index(u8 index) {
+	if (index == PATTERN_MOD_COLUMN) {
+		return PATTERN_MOD_COLUMN;
+	}
 	return stage_orders[c_pattern].order[index];
 }
 
@@ -576,14 +587,32 @@ void draw() {
 
 /***** stages *****/
 
+// check the special marker for "repeat transpose" mode in pattern mods
+u8 check_transpose() {
+	return stages[PATTERN_MOD_COLUMN].tie;
+}
+
 u8 get_note(Stage stage) {
 	if (stage.note == OUT_OF_RANGE) {
 		return OUT_OF_RANGE;
 	}
-	u8 n = stages[PATTERN_MOD_COLUMN].note == OUT_OF_RANGE ? 0 : stages[PATTERN_MOD_COLUMN].note;
-	return (DEFAULT_OCTAVE + stage.octave + stages[PATTERN_MOD_COLUMN].octave) * 12 +
-			note_map[stage.note + n] +
-			stage.accidental + stages[PATTERN_MOD_COLUMN].accidental;
+	u8 o = DEFAULT_OCTAVE + stage.octave + stages[PATTERN_MOD_COLUMN].octave;
+	u8 n = note_map[stage.note] + stage.accidental;
+	if (check_transpose() > 0) {
+		// when repeat transpose is on, we only transpose repeats
+		u8 transpose = note_map[(stages[PATTERN_MOD_COLUMN].note == OUT_OF_RANGE ? 0 : stages[PATTERN_MOD_COLUMN].note)];
+		transpose += stages[PATTERN_MOD_COLUMN].accidental;
+		if (transpose == 0) {
+			transpose = 12;
+		}
+		n += c_repeat * transpose;
+
+	} else {
+		// regular pattern mod: just add the mod note and accidental
+		n += (stages[PATTERN_MOD_COLUMN].note == OUT_OF_RANGE ? 0 : stages[PATTERN_MOD_COLUMN].note);
+		n += stages[PATTERN_MOD_COLUMN].accidental;
+	}
+	return o * 12 + n;
 }
 
 u8 get_velocity(Stage stage) {
@@ -615,7 +644,7 @@ void update_stage(Stage *stage, u8 row, u8 column, u8 marker, bool turn_on) {
 				stage->note_count--;
 				stage->note = OUT_OF_RANGE;
 				set_pattern_grid(c_pattern, old_note, stage_index(column), OFF_MARKER);
-				draw_pad(old_note, column, OFF_MARKER);
+				draw_pattern_grid(old_note, column, OFF_MARKER);
 			}
 			stage->note_count += inc;
 			if (turn_on) {
@@ -783,7 +812,7 @@ void clear() {
 			for (int column = 0; column < GRID_COLUMNS; column++) {
 				set_pattern_grid(p, row, column, OFF_MARKER);
 				if (p == c_pattern) {
-					draw_pad(row, column, OFF_MARKER);
+					draw_pattern_grid(row, column, OFF_MARKER);
 				}
 			}
 		}
@@ -924,7 +953,6 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 			set_grid(row, stage_index(column), OFF_MARKER);
 			draw_pad(row, column, OFF_MARKER);
 		}
-
 	}
 }
 
