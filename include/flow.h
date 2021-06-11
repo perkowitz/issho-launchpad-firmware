@@ -6,7 +6,7 @@
 
 /***** application constants *****/
 #define FLOW_APP_ID = 0
-#define APP_VERSION 3
+#define APP_VERSION 4
 #define INTERNAL 0
 #define EXTERNAL 1
 #define OUT_OF_RANGE 255
