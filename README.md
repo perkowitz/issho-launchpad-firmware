@@ -27,6 +27,11 @@ Poke is a simple game that can be played on the launchpad. See [rules](Poke.md).
 
 ## Releases
 
+[v0.4: updates to FLOW](https://github.com/perkowitz/issho-launchpad-firmware/releases/tag/v0.4)
+- Adds repeat-transpose mode, allowing repeats to transpose up by octaves or other intervals
+- Allows MIDI ports to be enabled/disabled for output
+- Minor refactoring
+
 [v0.3: more performance features in FLOW](https://github.com/perkowitz/issho-launchpad-firmware/releases/tag/v0.3)
 - Adds Jump mode, allowing manual selection of next stage by tapping pads.
 - Adds Flow mode, sequencing multiple patterns.
