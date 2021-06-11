@@ -15,9 +15,9 @@ download the sysex file in the release. The release manual includes installation
 
 With multiple extends and repeats, sequences can be of irregular lengths, with complex, shifting rhythms. The sequence can be free running or regularly reset to provide more predictability.
 
-[Latest Manual](https://github.com/perkowitz/issho-launchpad-firmware/releases/download/v0.3/FLOW.Manual.v0.3.pdf)
+[Latest Manual](https://github.com/perkowitz/issho-launchpad-firmware/releases/download/v0.4/FLOW.Manual.v0.4.pdf)
 
-[Latest Sysex file](https://github.com/perkowitz/issho-launchpad-firmware/releases/download/v0.3/issho_launchpad_flow.syx)
+[Latest Sysex file](https://github.com/perkowitz/issho-launchpad-firmware/releases/download/v0.4/issho_launchpad_flow.syx)
 
 
 ## Poke
