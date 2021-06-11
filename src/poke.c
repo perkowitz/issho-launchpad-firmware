@@ -36,6 +36,7 @@
 //______________________________________________________________________________
 
 #include "app.h"
+#include "issho.h"
 #include "poke.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,7 +50,6 @@
 static const u16 *g_ADC = 0;   // ADC frame pointer
 static u8 hw_buttons[BUTTON_COUNT] = {0};
 static Color palette[PSIZE];
-static u8 rainbow[8];
 
 static int interval_millis = 1000;
 static int tick_count = 0;
@@ -546,51 +546,11 @@ void app_timer_event()
 
 /***** initialization *****/
 
-void colors_init() {
-
-	palette[BLACK] = (Color){0, 0, 0};
-	palette[DARK_GRAY] = (Color){C_LO, C_LO, C_LO};
-	palette[WHITE] = (Color){C_HI, C_HI, C_HI};
-	palette[GRAY] = (Color){C_MID, C_MID, C_MID};
-
-	palette[RED] = (Color){C_HI, 0, 0};
-	palette[ORANGE] = (Color){63, 20, 0};
-	palette[YELLOW] = (Color){C_HI, C_HI, 0};
-	palette[GREEN] = (Color){0, C_HI, 0};
-	palette[CYAN] = (Color){0, C_HI, C_HI};
-	palette[BLUE] = (Color){0, 0, C_HI};
-	palette[PURPLE] = (Color){10, 0, 63};
-	palette[MAGENTA] = (Color){C_HI, 0, C_HI};
-
-	palette[DIM_RED] = (Color){C_MID, 0, 0};
-	palette[DIM_ORANGE] = (Color){20, 8, 0};
-	palette[DIM_YELLOW] = (Color){C_MID, C_MID, 0};
-	palette[DIM_GREEN] = (Color){0, C_MID, 0};
-	palette[DIM_CYAN] = (Color){0, C_MID, C_MID};
-	palette[DIM_BLUE] = (Color){0, 0, C_MID};
-	palette[DIM_PURPLE] = (Color){4, 0, 20};
-	palette[DIM_MAGENTA] = (Color){C_MID, 0, C_MID};
-
-	palette[SKY_BLUE] = (Color){8, 18, 63};
-	palette[PINK] = (Color){32, 13, 22};
-	palette[DIM_PINK] = (Color){16, 7, 11};
-
-	rainbow[0] = WHITE;
-	rainbow[1] = RED;
-	rainbow[2] = ORANGE;
-	rainbow[3] = YELLOW;
-	rainbow[4] = GREEN;
-	rainbow[5] = CYAN;
-	rainbow[6] = BLUE;
-	rainbow[7] = PURPLE;
-
-}
-
 void app_init(const u16 *adc_raw)
 {
 
 	// initialize some things
-	colors_init();
+	colors_init(palette);
 	warning(SKY_BLUE);
 
 	tick_timer = interval_millis;

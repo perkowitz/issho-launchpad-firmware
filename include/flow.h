@@ -2,11 +2,7 @@
 #define LAUNCHPAD_STEP_H
 
 #include <stdbool.h>
-
-/***** launchpad constants *****/
-#define BUTTON_COUNT 100
-#define ROW_COUNT 8
-#define COLUMN_COUNT 8
+#include "issho.h"
 
 /***** application constants *****/
 #define FLOW_APP_ID = 0
@@ -16,11 +12,11 @@
 #define OUT_OF_RANGE 255
 #define STAGE_COUNT 8
 #define PATTERN_COUNT 8
-#define MIDI_OUT_PORT USBMIDI
+#define MIDI_OUT_PORT DINMIDI
 #define LONG_PRESS_MILLIS 2000
-
-#define MIDI_ALL_NOTES_OFF_CC 120
-#define MIDI_RESET_ALL_CONTROLLERS 121
+#define MIDI_USB_MASK 1
+#define MIDI_DIN_MASK 2
+#define MIDI_STANDALONE_MASK 4
 
 #define BEATS_PER_MEASURE 4
 #define TICKS_PER_BEAT 24
@@ -94,6 +90,8 @@
 #define FLOW2_1_COLOR PATTERN_COLOR_2
 #define FLOW2_2_COLOR PATTERN_SELECTED_COLOR_2
 #define FLOW2_3_COLOR WHITE
+#define SETTINGS_AUTOLOAD_COLOR DARK_GRAY
+#define SETTINGS_MIDI_PORT_COLOR DIM_BLUE
 
 // top buttons
 #define PLAY_BUTTON 91
@@ -120,6 +118,9 @@
 #define SETTINGS_VERSION_ROW 3
 #define SETTINGS_MISC_ROW 2
 #define SETTINGS_AUTO_LOAD_COLUMN 0
+#define SETTINGS_MIDI_DIN_COLUMN 1
+#define SETTINGS_MIDI_USB_COLUMN 2
+#define SETTINGS_MIDI_STANDALONE_COLUMN 3
 #define SETTINGS_PATTERN_ROW 7
 #define SETTINGS_FLOW1_ROW 6
 #define SETTINGS_FLOW2_ROW 5
@@ -171,44 +172,6 @@ typedef struct Memory {
 	Pattern patterns[PATTERN_COUNT];
 } Memory;
 
-/***** colors *****/
-
-typedef struct Color {
-	u8 red;
-	u8 green;
-	u8 blue;
-} Color;
-
-#define C_HI 63
-#define C_MID 12
-#define C_LO 2
-#define PSIZE 25
-
-#define BLACK 0
-#define DARK_GRAY 1
-#define GRAY 2
-#define WHITE 3
-#define RED 4
-#define ORANGE 5
-#define YELLOW 6
-#define GREEN 7
-#define CYAN 8
-#define BLUE 9
-#define PURPLE 10
-#define MAGENTA 11
-#define DIM_RED 12
-#define DIM_ORANGE 13
-#define DIM_YELLOW 14
-#define DIM_GREEN 15
-#define DIM_CYAN 16
-#define DIM_BLUE 17
-#define DIM_PURPLE 18
-#define DIM_MAGENTA 19
-#define SKY_BLUE 20
-#define PINK 21
-#define DIM_PINK 22
-#define GRAY_GREEN 23
-#define DIM_GRAY_GREEN 24
 
 
 /***** function declarations *****/

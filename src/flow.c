@@ -36,6 +36,7 @@
 //______________________________________________________________________________
 
 #include "app.h"
+#include "issho.h"
 #include "flow.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +52,6 @@ static u8 hw_buttons[BUTTON_COUNT] = {0};
 static u8 clock_source = INTERNAL;
 static Stage stages[GRID_COLUMNS];
 static Color palette[PSIZE];
-static u8 rainbow[8];
 const u8 note_map[8] = { 0, 2, 4, 5, 7, 9, 11, 12 };  // maps the major scale to note intervals
 const u8 marker_map[8] = { OFF_MARKER, NOTE_MARKER, SHARP_MARKER, OCTAVE_UP_MARKER,
 		VELOCITY_UP_MARKER, EXTEND_MARKER, TIE_MARKER, LEGATO_MARKER };
@@ -103,15 +103,12 @@ static u8 c_beat = 0;
 static u8 c_tick = 0;
 
 static u8 flow_index = 0;
-static u8 flow1[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
-static u8 flow2[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
+static u8 flow1[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
+static u8 flow2[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
 static u8 flow1_colors[4] = { FLOW1_0_COLOR, FLOW1_1_COLOR, FLOW1_2_COLOR, FLOW1_3_COLOR };
 static u8 flow2_colors[4] = { FLOW2_0_COLOR, FLOW2_1_COLOR, FLOW2_2_COLOR, FLOW2_3_COLOR };
+static bool midi_ports[3] = { true, true, false };
 
-
-/***** helper functions *****/
-
-#define send_midi(s, d1, d2)    (hal_send_midi(MIDI_OUT_PORT, (s), (d1), (d2)))
 
 /**
  * plot_led lights up a hardware button with a color.
@@ -150,7 +147,32 @@ void debug(u8 index, u8 level) {
 }
 #endif
 
+
 /***** midi *****/
+
+bool get_port(u8 index) {
+	return midi_ports[index];
+}
+
+void set_port(u8 index, bool enabled) {
+	midi_ports[index] = enabled;
+}
+
+void flip_port(u8 index) {
+	midi_ports[index] = !midi_ports[index];
+}
+
+void send_midi(u8 status, u8 data1, u8 data2) {
+	if (get_port(PORT_DIN)) {
+		hal_send_midi(DINMIDI, status, data1, data2);
+	}
+	if (get_port(PORT_USB)) {
+		hal_send_midi(USBMIDI, status, data1, data2);
+	}
+	if (get_port(PORT_STANDALONE)) {
+		hal_send_midi(USBSTANDALONE, status, data1, data2);
+	}
+}
 
 void midi_note(u8 channel, u8 note, u8 velocity) {
 	send_midi(NOTEON | channel, note, velocity);
@@ -298,6 +320,14 @@ u8 get_pattern_grid(u8 p_index, u8 row, u8 column) {
 	}
 }
 
+void draw_pattern_grid(u8 row, u8 column, u8 value) {
+	if (column == PATTERN_MOD_COLUMN) {
+		draw_button(PATTERN_MOD_GROUP, row, value);
+	} else {
+		draw_pad(row, column, value);
+	}
+}
+
 void set_grid(u8 row, u8 column, u8 value) {
 	set_pattern_grid(c_pattern, row, column, value);
 }
@@ -328,8 +358,12 @@ void reset_stage_orders() {
 }
 
 u8 stage_index(u8 index) {
+	if (index == PATTERN_MOD_COLUMN) {
+		return PATTERN_MOD_COLUMN;
+	}
 	return stage_orders[c_pattern].order[index];
 }
+
 
 /***** draw *****/
 
@@ -490,7 +524,10 @@ void draw_settings() {
 	draw_binary_row(SETTINGS_VERSION_ROW, memory.settings.version);
 
 	// auto-load button
-	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : DARK_GRAY);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : SETTINGS_AUTOLOAD_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_USB_COLUMN, get_port(PORT_USB) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_DIN_COLUMN, get_port(PORT_DIN) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_STANDALONE_COLUMN, get_port(PORT_STANDALONE) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
 
 	// patterns
 	for (int column = 0; column < 4; column++) {
@@ -550,14 +587,32 @@ void draw() {
 
 /***** stages *****/
 
+// check the special marker for "repeat transpose" mode in pattern mods
+u8 check_transpose() {
+	return stages[PATTERN_MOD_COLUMN].tie;
+}
+
 u8 get_note(Stage stage) {
 	if (stage.note == OUT_OF_RANGE) {
 		return OUT_OF_RANGE;
 	}
-	u8 n = stages[PATTERN_MOD_COLUMN].note == OUT_OF_RANGE ? 0 : stages[PATTERN_MOD_COLUMN].note;
-	return (DEFAULT_OCTAVE + stage.octave + stages[PATTERN_MOD_COLUMN].octave) * 12 +
-			note_map[stage.note + n] +
-			stage.accidental + stages[PATTERN_MOD_COLUMN].accidental;
+	u8 o = DEFAULT_OCTAVE + stage.octave + stages[PATTERN_MOD_COLUMN].octave;
+	u8 n = note_map[stage.note] + stage.accidental;
+	if (check_transpose() > 0) {
+		// when repeat transpose is on, we only transpose repeats
+		u8 transpose = note_map[(stages[PATTERN_MOD_COLUMN].note == OUT_OF_RANGE ? 0 : stages[PATTERN_MOD_COLUMN].note)];
+		transpose += stages[PATTERN_MOD_COLUMN].accidental;
+		if (transpose == 0) {
+			transpose = 12;
+		}
+		n += c_repeat * transpose;
+
+	} else {
+		// regular pattern mod: just add the mod note and accidental
+		n += (stages[PATTERN_MOD_COLUMN].note == OUT_OF_RANGE ? 0 : stages[PATTERN_MOD_COLUMN].note);
+		n += stages[PATTERN_MOD_COLUMN].accidental;
+	}
+	return o * 12 + n;
 }
 
 u8 get_velocity(Stage stage) {
@@ -568,7 +623,7 @@ u8 get_velocity(Stage stage) {
 
 void note_off() {
 	if (current_note != OUT_OF_RANGE) {
-		hal_send_midi(USBMIDI, NOTEOFF | memory.settings.midi_channel, current_note, 0);
+		send_midi(NOTEOFF | memory.settings.midi_channel, current_note, 0);
 		current_note = OUT_OF_RANGE;
 	}
 }
@@ -589,7 +644,7 @@ void update_stage(Stage *stage, u8 row, u8 column, u8 marker, bool turn_on) {
 				stage->note_count--;
 				stage->note = OUT_OF_RANGE;
 				set_pattern_grid(c_pattern, old_note, stage_index(column), OFF_MARKER);
-				draw_pad(old_note, column, OFF_MARKER);
+				draw_pattern_grid(old_note, column, OFF_MARKER);
 			}
 			stage->note_count += inc;
 			if (turn_on) {
@@ -757,7 +812,7 @@ void clear() {
 			for (int column = 0; column < GRID_COLUMNS; column++) {
 				set_pattern_grid(p, row, column, OFF_MARKER);
 				if (p == c_pattern) {
-					draw_pad(row, column, OFF_MARKER);
+					draw_pattern_grid(row, column, OFF_MARKER);
 				}
 			}
 		}
@@ -767,6 +822,7 @@ void clear() {
 
 void save() {
 	memory.settings.version = APP_VERSION;
+	memory.settings.midi_ports = (midi_ports[PORT_DIN] << 2) + (midi_ports[PORT_USB] << 1) + midi_ports[PORT_STANDALONE];
     hal_write_flash(0, (u8*)&memory, sizeof(memory));
 }
 
@@ -789,6 +845,9 @@ void load_stages() {
 void load() {
 	clear();
 	hal_read_flash(0, (u8*)&memory, sizeof(memory));
+	midi_ports[PORT_DIN] = memory.settings.midi_ports & 4;
+	midi_ports[PORT_USB] = memory.settings.midi_ports & 2;
+	midi_ports[PORT_STANDALONE] = memory.settings.midi_ports & 1;
 	load_stages();
 	reset_stage_orders();
 	draw();
@@ -840,6 +899,20 @@ void on_settings(u8 index, u8 row, u8 column, u8 value) {
 			memory.settings.auto_load = !memory.settings.auto_load;
 			draw_settings();
 
+		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_MIDI_USB_COLUMN) {
+			all_notes_off(memory.settings.midi_channel);
+			flip_port(PORT_USB);
+			draw_settings();
+
+		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_MIDI_DIN_COLUMN) {
+			all_notes_off(memory.settings.midi_channel);
+			flip_port(PORT_DIN);
+			draw_settings();
+
+		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_MIDI_STANDALONE_COLUMN) {
+			all_notes_off(memory.settings.midi_channel);
+			flip_port(PORT_STANDALONE);
+			draw_settings();
 		}
 
 		// if the MIDI channel changes, make sure there are no stuck notes
@@ -880,7 +953,6 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 			set_grid(row, stage_index(column), OFF_MARKER);
 			draw_pad(row, column, OFF_MARKER);
 		}
-
 	}
 }
 
@@ -1138,7 +1210,7 @@ void tick() {
 		}
 
 		// if at beginning of pattern, we might change pattern (if length > 1)
-		if (c_stage == 0) {
+		if (c_stage == 0 && c_extend == 0 && c_repeat == 0) {
 			u8 np = get_continue_pattern();
 			if (np != c_pattern) {
 				change_pattern(np);
@@ -1192,7 +1264,7 @@ void tick() {
 			u8 previous_note_column = current_note_column;
 			if (stage.note_count > 0 && stage.note != OUT_OF_RANGE) {
 				u8 n = get_note(stage);
-				hal_send_midi(USBMIDI, NOTEON | memory.settings.midi_channel, n, get_velocity(stage));
+				send_midi(NOTEON | memory.settings.midi_channel, n, get_velocity(stage));
 				if (!in_settings) {
 					draw_pad(stage.note, c_stage, PLAYING_NOTE_COLOR);
 				}
@@ -1202,7 +1274,7 @@ void tick() {
 			}
 
 			if (stage.legato > 0 && previous_note != OUT_OF_RANGE) {
-				hal_send_midi(USBMIDI, NOTEOFF | memory.settings.midi_channel, previous_note, 0);
+				send_midi(NOTEOFF | memory.settings.midi_channel, previous_note, 0);
 				if (!in_settings) {
 //					draw_pad(previous_note_row, previous_note_column, NOTE_MARKER);
 					draw_stage(previous_note_column);
@@ -1317,7 +1389,7 @@ void app_surface_event(u8 type, u8 index, u8 value)
 
 
 
-//            hal_send_midi(USBMIDI, NOTEON | 0, index, value);
+//            send_midi(NOTEON | 0, index, value);
 
 
 //            // toggle it and store it off, so we can save to flash if we want to
@@ -1330,8 +1402,8 @@ void app_surface_event(u8 type, u8 index, u8 value)
 //            hal_plot_led(TYPEPAD, index, 0, 0, g_Buttons[index]);
 //
 //            // example - send MIDI
-//            hal_send_midi(USBMIDI, NOTEON | 0, index, value);
-////            hal_send_midi(DINMIDI, NOTEON | 0, index, value);
+//            send_midi(NOTEON | 0, index, value);
+////            send_midi(NOTEON | 0, index, value);
             
         }
         break;
@@ -1407,8 +1479,8 @@ void app_sysex_event(u8 port, u8 * data, u16 count)
 void app_aftertouch_event(u8 index, u8 value)
 {
     // example - send poly aftertouch to MIDI ports
-//    hal_send_midi(USBMIDI, POLYAFTERTOUCH | 0, index, value);
-//    hal_send_midi(USBMIDI, CHANNELAFTERTOUCH | 0, value, 0);
+//    send_midi(POLYAFTERTOUCH | 0, index, value);
+//    send_midi(CHANNELAFTERTOUCH | 0, value, 0);
     
     
 }
@@ -1491,47 +1563,47 @@ void app_timer_event()
 
 /***** initialization *****/
 
-void colors_init() {
-
-	palette[BLACK] = (Color){0, 0, 0};
-	palette[DARK_GRAY] = (Color){C_LO, C_LO, C_LO};
-	palette[WHITE] = (Color){C_HI, C_HI, C_HI};
-	palette[GRAY] = (Color){C_MID, C_MID, C_MID};
-
-	palette[RED] = (Color){C_HI, 0, 0};
-	palette[ORANGE] = (Color){63, 20, 0};
-	palette[YELLOW] = (Color){C_HI, C_HI, 0};
-	palette[GREEN] = (Color){0, C_HI, 0};
-	palette[CYAN] = (Color){0, C_HI, C_HI};
-	palette[BLUE] = (Color){0, 0, C_HI};
-	palette[PURPLE] = (Color){10, 0, 63};
-	palette[MAGENTA] = (Color){C_HI, 0, C_HI};
-
-	palette[DIM_RED] = (Color){C_MID, 0, 0};
-	palette[DIM_ORANGE] = (Color){20, 8, 0};
-	palette[DIM_YELLOW] = (Color){C_MID, C_MID, 0};
-	palette[DIM_GREEN] = (Color){0, C_MID, 0};
-	palette[DIM_CYAN] = (Color){0, C_MID, C_MID};
-	palette[DIM_BLUE] = (Color){0, 0, C_MID};
-	palette[DIM_PURPLE] = (Color){4, 0, 20};
-	palette[DIM_MAGENTA] = (Color){C_MID, 0, C_MID};
-
-	palette[SKY_BLUE] = (Color){8, 18, 63};
-	palette[PINK] = (Color){32, 13, 22};
-	palette[DIM_PINK] = (Color){16, 7, 11};
-	palette[GRAY_GREEN] = (Color){18, 32, 22};
-	palette[DIM_GRAY_GREEN] = (Color){10, 22, 14};
-
-	rainbow[0] = WHITE;
-	rainbow[1] = RED;
-	rainbow[2] = ORANGE;
-	rainbow[3] = YELLOW;
-	rainbow[4] = GREEN;
-	rainbow[5] = CYAN;
-	rainbow[6] = BLUE;
-	rainbow[7] = PURPLE;
-
-}
+//void colors_init() {
+//
+//	palette[BLACK] = (Color){0, 0, 0};
+//	palette[DARK_GRAY] = (Color){C_LO, C_LO, C_LO};
+//	palette[WHITE] = (Color){C_HI, C_HI, C_HI};
+//	palette[GRAY] = (Color){C_MID, C_MID, C_MID};
+//
+//	palette[RED] = (Color){C_HI, 0, 0};
+//	palette[ORANGE] = (Color){63, 20, 0};
+//	palette[YELLOW] = (Color){C_HI, C_HI, 0};
+//	palette[GREEN] = (Color){0, C_HI, 0};
+//	palette[CYAN] = (Color){0, C_HI, C_HI};
+//	palette[BLUE] = (Color){0, 0, C_HI};
+//	palette[PURPLE] = (Color){10, 0, 63};
+//	palette[MAGENTA] = (Color){C_HI, 0, C_HI};
+//
+//	palette[DIM_RED] = (Color){C_MID, 0, 0};
+//	palette[DIM_ORANGE] = (Color){20, 8, 0};
+//	palette[DIM_YELLOW] = (Color){C_MID, C_MID, 0};
+//	palette[DIM_GREEN] = (Color){0, C_MID, 0};
+//	palette[DIM_CYAN] = (Color){0, C_MID, C_MID};
+//	palette[DIM_BLUE] = (Color){0, 0, C_MID};
+//	palette[DIM_PURPLE] = (Color){4, 0, 20};
+//	palette[DIM_MAGENTA] = (Color){C_MID, 0, C_MID};
+//
+//	palette[SKY_BLUE] = (Color){8, 18, 63};
+//	palette[PINK] = (Color){32, 13, 22};
+//	palette[DIM_PINK] = (Color){16, 7, 11};
+//	palette[GRAY_GREEN] = (Color){18, 32, 22};
+//	palette[DIM_GRAY_GREEN] = (Color){10, 22, 14};
+//
+//	rainbow[0] = WHITE;
+//	rainbow[1] = RED;
+//	rainbow[2] = ORANGE;
+//	rainbow[3] = YELLOW;
+//	rainbow[4] = GREEN;
+//	rainbow[5] = CYAN;
+//	rainbow[6] = BLUE;
+//	rainbow[7] = PURPLE;
+//
+//}
 
 void settings_init() {
 	memory.settings.version = APP_VERSION;
@@ -1546,7 +1618,7 @@ void app_init(const u16 *adc_raw)
 {
 
 	// initialize some things
-	colors_init();
+	colors_init(palette);
 	settings_init();
 	warning(SKY_BLUE);
 
