@@ -19,6 +19,7 @@ With multiple extends and repeats, sequences can be of irregular lengths, with c
 
 [Latest Sysex file](https://github.com/perkowitz/issho-launchpad-firmware/releases/download/v0.4/issho_launchpad_flow.syx)
 
+[FLOW demos on Youtube](https://www.youtube.com/playlist?list=PLG_tYM0QmxWGq5FGoRPsmRbudcPo65I0i)
 
 ## Poke
 
