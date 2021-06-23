@@ -30,11 +30,6 @@
  
  *****************************************************************************/
 
-//______________________________________________________________________________
-//
-// Headers
-//______________________________________________________________________________
-
 #include "app.h"
 #include "issho.h"
 #include "flow.h"
@@ -44,14 +39,11 @@
 #include <string.h>
 
 
-//#define DEBUG 1
 
 /***** global variables *****/
 static const u16 *g_ADC = 0;   // ADC frame pointer
-static u8 hw_buttons[BUTTON_COUNT] = {0};
 static u8 clock_source = INTERNAL;
 static Stage stages[GRID_COLUMNS];
-static Color palette[PSIZE];
 const u8 note_map[8] = { 0, 2, 4, 5, 7, 9, 11, 12 };  // maps the major scale to note intervals
 const u8 marker_map[8] = { OFF_MARKER, NOTE_MARKER, SHARP_MARKER, OCTAVE_UP_MARKER,
 		VELOCITY_UP_MARKER, EXTEND_MARKER, TIE_MARKER, LEGATO_MARKER };
@@ -71,9 +63,6 @@ static unsigned long app_clock = 0;
 static Memory memory;
 static u8 c_pattern = 0;
 static u8 c_pattern_group = 0;
-
-static u8 warning_level = 0;
-static u8 warning_blink = 0;
 
 static bool is_running = false;
 static bool in_settings = false;
@@ -107,197 +96,9 @@ static u8 flow1[FLOW_LENGTH] = { 0, 1, 2, 3, 0, 1, 2, 3 };
 static u8 flow2[FLOW_LENGTH] = { 0, 1, 0, 2, 0, 1, 0, 3 };
 static u8 flow1_colors[4] = { FLOW1_0_COLOR, FLOW1_1_COLOR, FLOW1_2_COLOR, FLOW1_3_COLOR };
 static u8 flow2_colors[4] = { FLOW2_0_COLOR, FLOW2_1_COLOR, FLOW2_2_COLOR, FLOW2_3_COLOR };
-static bool midi_ports[3] = { true, true, false };
 
 
-/**
- * plot_led lights up a hardware button with a color.
- */
-void plot_led(u8 type, u8 index, Color color) {
-	if (index >= 0 && index < BUTTON_COUNT) {
-		hal_plot_led(type, index, color.red, color.green, color.blue);
-	}
-}
 
-void draw_by_index(u8 index, u8 c) {
-	if (index >= 0 && index < BUTTON_COUNT && c >= 0 && c < PSIZE) {
-		Color color = palette[c];
-		hal_plot_led(TYPEPAD, index, color.red, color.green, color.blue);
-	}
-}
-
-
-void status_light(u8 palette_index) {
-	if (palette_index < PSIZE) {
-		plot_led(TYPESETUP, 0, palette[palette_index]);
-	}
-}
-
-void warning(u8 level) {
-	status_light(level);
-    warning_level = level;
-    warning_blink = 0;
-}
-
-#ifdef DEBUG
-void debug(u8 index, u8 level) {
-	if (level != OUT_OF_RANGE) {
-		plot_led(TYPEPAD, (index + 1) * 10 + 9, palette[level]);
-	}
-}
-#endif
-
-
-/***** midi *****/
-
-bool get_port(u8 index) {
-	return midi_ports[index];
-}
-
-void set_port(u8 index, bool enabled) {
-	midi_ports[index] = enabled;
-}
-
-void flip_port(u8 index) {
-	midi_ports[index] = !midi_ports[index];
-}
-
-void send_midi(u8 status, u8 data1, u8 data2) {
-	if (get_port(PORT_DIN)) {
-		hal_send_midi(DINMIDI, status, data1, data2);
-	}
-	if (get_port(PORT_USB)) {
-		hal_send_midi(USBMIDI, status, data1, data2);
-	}
-	if (get_port(PORT_STANDALONE)) {
-		hal_send_midi(USBSTANDALONE, status, data1, data2);
-	}
-}
-
-void midi_note(u8 channel, u8 note, u8 velocity) {
-	send_midi(NOTEON | channel, note, velocity);
-}
-
-void all_notes_off(u8 channel) {
-	send_midi(CC | channel, MIDI_ALL_NOTES_OFF_CC, 0);
-	send_midi(CC | channel, MIDI_RESET_ALL_CONTROLLERS, 0);
-}
-
-
-/***** pads: functions for setting colors on the central hardware grid *****/
-
-/**
- * pad_index computes the button index from the row and column.
- */
-u8 pad_index(u8 row, u8 column) {
-	if (row >= 0 && row < ROW_COUNT && column >= 0 && column < COLUMN_COUNT) {
-		return (row + 1) * 10 + column + 1;
-	} else {
-		return OUT_OF_RANGE;
-	}
-}
-
-/**
- * index_to_row_column computes the pad row & column from an index.
- * Sets values by reference, returns "0" if successful, OUT_OF_RANGE otherwise.
- */
-u8 index_to_row_column(u8 index, u8 *row, u8 *column) {
-	*row = index / 10 - 1;
-	*column = index % 10 - 1;
-	if (*column >= 0 && *column < COLUMN_COUNT && *row >= 0 && *row < ROW_COUNT) {
-		return 0;
-	}
-	return OUT_OF_RANGE;
-}
-
-bool is_pad(u8 row, u8 column) {
-	return row != OUT_OF_RANGE && column != OUT_OF_RANGE;
-}
-
-/**
- * draw_pad lights up the pad with the indexed color.
- */
-void draw_pad(u8 row, u8 column, u8 c) {
-	u8 index = pad_index(row, column);
-	if (index != OUT_OF_RANGE) {
-		draw_by_index(index, c);
-	}
-}
-
-
-/***** buttons: functions for setting colors for the round buttons on each side *****/
-
-/**
- * button_index computes the index from the given group and offset.
- */
-u8 button_index(u8 group, u8 offset) {
-	if (group >= 0 && group < GROUP_COUNT && offset >= 0 && offset < OFFSET_COUNT) {
-		switch (group) {
-			case TOP:
-				return 91 + offset;
-			case BOTTOM:
-				return 1 + offset;
-			case LEFT:
-				return (offset + 1) * 10;
-			case RIGHT:
-				return (offset + 1) * 10 + 9;
-		}
-	}
-	return OUT_OF_RANGE;
-}
-
-/**
- * index_to_group_offset computes the group and offset from the index.
- * Sets values by reference; returns "0" of successful, OUT_OF_RANGE otherwise.
- */
-u8 index_to_group_offset(u8 index, u8 *group, u8 *offset) {
-	u8 r = index / 10;
-	u8 c = index % 10;
-	if (r == 0) {
-		*group = BOTTOM;
-	} else if (r == 9) {
-		*group = TOP;
-	} else if (c == 0) {
-		*group = LEFT;
-	} else if (c == 9) {
-		*group = RIGHT;
-	} else {
-		return OUT_OF_RANGE;
-	}
-
-	if (*group == TOP || *group == BOTTOM) {
-		*offset = (index % 10) - 1;
-		return 0;
-	}
-	if (*group == LEFT || *group == RIGHT) {
-		*offset = (index / 10) - 1;
-		return 0;
-	}
-	return OUT_OF_RANGE;
-}
-
-void draw_button(u8 group, u8 offset, u8 value) {
-	u8 index = button_index(group, offset);
-	if (index != OUT_OF_RANGE) {
-		draw_by_index(index, value);
-	}
-}
-
-void set_and_draw_button(u8 group, u8 offset, u8 value) {
-	u8 index = button_index(group, offset);
-	if (index != OUT_OF_RANGE) {
-		hw_buttons[index] = value;
-		draw_by_index(index, value);
-	}
-}
-
-u8 get_button(u8 group, u8 offset) {
-	u8 index = button_index(group, offset);
-	if (index != OUT_OF_RANGE) {
-		return hw_buttons[index];
-	}
-	return OUT_OF_RANGE;
-}
 
 
 /***** patterns & grids *****/
@@ -366,30 +167,6 @@ u8 stage_index(u8 index) {
 
 
 /***** draw *****/
-
-void clear_pads() {
-	for (int row = 0; row < ROW_COUNT; row++) {
-		for (int column = 0; column < COLUMN_COUNT; column++) {
-			draw_pad(row, column, BLACK);
-		}
-	}
-}
-
-void clear_buttons() {
-	for (u8 group = 0; group < 4; group++) {
-		for (u8 offset = 0; offset < 8; offset++) {
-			draw_button(group, offset, BLACK);
-		}
-	}
-}
-
-void draw_binary_row(u8 row, u8 value) {
-	u8 nd = 1;
-	for (int column = 0; column < 8; column++) {
-		draw_pad(row, 7 - column, value & nd ? WHITE : DIM_BLUE);
-		nd = nd << 1;
-	}
-}
 
 void draw_markers() {
 	if (jump_on) {
@@ -525,6 +302,8 @@ void draw_settings() {
 
 	// auto-load button
 	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : SETTINGS_AUTOLOAD_COLOR);
+
+	// midi ports
 	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_USB_COLUMN, get_port(PORT_USB) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
 	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_DIN_COLUMN, get_port(PORT_DIN) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
 	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_STANDALONE_COLUMN, get_port(PORT_STANDALONE) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
@@ -558,8 +337,7 @@ void draw_patterns() {
 
 void draw_water() {
 	clear_buttons();
-	draw_patterns();
-//	draw_function_buttons();
+//	draw_patterns();
 	Color c;
 	for (u8 row = 0; row < ROW_COUNT; row++) {
 		for (u8 column = 0; column < COLUMN_COUNT; column++) {
@@ -569,11 +347,11 @@ void draw_water() {
 				u8 g = rand() % 16;
 				u8 b = rand() % 32 + 16;
 				c = (Color){r, g, b};
-				plot_led(TYPEPAD, index, c);
+				plot_by_index(index, c);
 			}
 		}
 	}
-	plot_led(TYPEPAD, WATER_BUTTON, c);
+	plot_by_index(WATER_BUTTON, c);
 }
 
 void draw() {
@@ -822,7 +600,7 @@ void clear() {
 
 void save() {
 	memory.settings.version = APP_VERSION;
-	memory.settings.midi_ports = (midi_ports[PORT_DIN] << 2) + (midi_ports[PORT_USB] << 1) + midi_ports[PORT_STANDALONE];
+	memory.settings.midi_ports = (get_port(PORT_DIN) << 2) + (get_port(PORT_USB) << 1) + get_port(PORT_STANDALONE);
     hal_write_flash(0, (u8*)&memory, sizeof(memory));
 }
 
@@ -845,9 +623,9 @@ void load_stages() {
 void load() {
 	clear();
 	hal_read_flash(0, (u8*)&memory, sizeof(memory));
-	midi_ports[PORT_DIN] = memory.settings.midi_ports & 4;
-	midi_ports[PORT_USB] = memory.settings.midi_ports & 2;
-	midi_ports[PORT_STANDALONE] = memory.settings.midi_ports & 1;
+	set_port(PORT_DIN, memory.settings.midi_ports & 4);
+	set_port(PORT_USB, memory.settings.midi_ports & 2);
+	set_port(PORT_STANDALONE, memory.settings.midi_ports & 1);
 	load_stages();
 	reset_stage_orders();
 	draw();
@@ -1162,7 +940,6 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			}
 
 			if (n != OUT_OF_RANGE) {
-//				plot_led(TYPEPAD, DISPLAY_BUTTON, palette[n]);
 				current_marker = n;
 				current_marker_index = offset;
 				draw_button(MARKER_GROUP, previous_marker_index, marker_map[previous_marker_index]);
@@ -1196,12 +973,11 @@ void tick() {
 
 		// flash the status light in time
 		if (c_beat == 0 && c_tick == 0) {
-//			status_light(rainbow[c_measure % 8]);
-			status_light(STATUS_LIGHT);
+			status(STATUS_LIGHT);
 		} else if (c_tick == 0) {
-			status_light(STATUS_LIGHT_DIM);
+			status(STATUS_LIGHT_DIM);
 		} else {
-			status_light(BLACK);
+			status(BLACK);
 		}
 
 		// update water if it's on
@@ -1281,20 +1057,6 @@ void tick() {
 				}
 			}
 		}
-
-#ifdef DEBUG
-		// echo the current step activity on the debug buttons
-		debug(1, stage.note_count > 0 ? NOTE_MARKER : OFF_MARKER);
-		debug(1, stage.accidental > 0 ? SHARP_MARKER : OUT_OF_RANGE);
-		debug(1, stage.accidental < 0 ? FLAT_MARKER : OUT_OF_RANGE);
-		debug(1, stage.tie > 0 ? TIE_MARKER : OUT_OF_RANGE);
-		debug(2, stage.octave > 0 ? OCTAVE_UP_MARKER : OFF_MARKER);
-		debug(2, stage.octave < 0 ? OCTAVE_DOWN_MARKER : OUT_OF_RANGE);
-		debug(3, stage.velocity > 0 ? VELOCITY_UP_MARKER : OFF_MARKER);
-		debug(3, stage.velocity < 0 ? VELOCITY_DOWN_MARKER : OUT_OF_RANGE);
-		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
-		debug(3, stage.legato > 0 ? LEGATO_MARKER : OFF_MARKER);
-#endif
 
 		// now increment current extension
 		// if that would exceed the stage's extension count, increment the repeats count
@@ -1437,6 +1199,7 @@ void app_midi_event(u8 port, u8 status, u8 d1, u8 d2)
 			clock_source = INTERNAL;
 			note_off();
 			draw_function_button(PLAY_BUTTON);
+			flow_index = FLOW_LENGTH - 1;
 			break;
 
 		case MIDICONTINUE:
@@ -1563,48 +1326,6 @@ void app_timer_event()
 
 /***** initialization *****/
 
-//void colors_init() {
-//
-//	palette[BLACK] = (Color){0, 0, 0};
-//	palette[DARK_GRAY] = (Color){C_LO, C_LO, C_LO};
-//	palette[WHITE] = (Color){C_HI, C_HI, C_HI};
-//	palette[GRAY] = (Color){C_MID, C_MID, C_MID};
-//
-//	palette[RED] = (Color){C_HI, 0, 0};
-//	palette[ORANGE] = (Color){63, 20, 0};
-//	palette[YELLOW] = (Color){C_HI, C_HI, 0};
-//	palette[GREEN] = (Color){0, C_HI, 0};
-//	palette[CYAN] = (Color){0, C_HI, C_HI};
-//	palette[BLUE] = (Color){0, 0, C_HI};
-//	palette[PURPLE] = (Color){10, 0, 63};
-//	palette[MAGENTA] = (Color){C_HI, 0, C_HI};
-//
-//	palette[DIM_RED] = (Color){C_MID, 0, 0};
-//	palette[DIM_ORANGE] = (Color){20, 8, 0};
-//	palette[DIM_YELLOW] = (Color){C_MID, C_MID, 0};
-//	palette[DIM_GREEN] = (Color){0, C_MID, 0};
-//	palette[DIM_CYAN] = (Color){0, C_MID, C_MID};
-//	palette[DIM_BLUE] = (Color){0, 0, C_MID};
-//	palette[DIM_PURPLE] = (Color){4, 0, 20};
-//	palette[DIM_MAGENTA] = (Color){C_MID, 0, C_MID};
-//
-//	palette[SKY_BLUE] = (Color){8, 18, 63};
-//	palette[PINK] = (Color){32, 13, 22};
-//	palette[DIM_PINK] = (Color){16, 7, 11};
-//	palette[GRAY_GREEN] = (Color){18, 32, 22};
-//	palette[DIM_GRAY_GREEN] = (Color){10, 22, 14};
-//
-//	rainbow[0] = WHITE;
-//	rainbow[1] = RED;
-//	rainbow[2] = ORANGE;
-//	rainbow[3] = YELLOW;
-//	rainbow[4] = GREEN;
-//	rainbow[5] = CYAN;
-//	rainbow[6] = BLUE;
-//	rainbow[7] = PURPLE;
-//
-//}
-
 void settings_init() {
 	memory.settings.version = APP_VERSION;
 	memory.settings.auto_load = false;
@@ -1618,9 +1339,9 @@ void app_init(const u16 *adc_raw)
 {
 
 	// initialize some things
-	colors_init(palette);
+	colors_init();
 	settings_init();
-	warning(SKY_BLUE);
+	status(SKY_BLUE);
 
 	// make sure stages are clear
 	for (int s = 0; s < 8; s++) {
@@ -1647,7 +1368,7 @@ void app_init(const u16 *adc_raw)
 
     // example - load button states from flash
 //    hal_read_flash(0, g_Buttons, BUTTON_COUNT);
-    
+
     // example - light the LEDs to say hello!
 //    for (int i=0; i < 10; ++i)
 //    {

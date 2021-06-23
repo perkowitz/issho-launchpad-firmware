@@ -38,6 +38,8 @@ all: flow
 
 flow: $(OUTPUT_PREFIX)flow.syx
 
+quake: $(OUTPUT_PREFIX)quake.syx
+
 poke: $(OUTPUT_PREFIX)poke.syx
 
 
@@ -61,6 +63,10 @@ $(OUTPUT_PREFIX)%.syx: $(OUTPUT_PREFIX)%.hex $(HEXTOSYX) $(BUILDDIR)/%.simulator
 
 # build the elf file for flow
 $(OUTPUT_PREFIX)flow.elf: $(BUILDDIR)/src/flow.o $(LIB) $(ISSHO_LIB) 
+	$(LD) $(LDFLAGS) -o $@ $?
+
+# build the elf file for quake
+$(OUTPUT_PREFIX)quake.elf: $(BUILDDIR)/src/quake.o $(LIB) $(ISSHO_LIB) 
 	$(LD) $(LDFLAGS) -o $@ $?
 
 # build the elf file for poke
