@@ -19,7 +19,7 @@ static bool earth_on = false;
 static bool is_running = false;
 static bool in_settings = false;
 static bool quake_on = false;
-static bool fill_on = false;
+static bool trigger_on = false;
 static bool autofill_on = false;
 static bool jump_on = false;
 
@@ -147,11 +147,11 @@ void draw_function_button(u8 button_index) {
 		case QUAKE_BUTTON:
 			draw_by_index(button_index, quake_on ? ON_COLOR : QUAKE_BUTTON_COLOR);
 			break;
-		case FILL_BUTTON:
-			draw_by_index(button_index, fill_on ? ON_COLOR : FILL_BUTTON_COLOR);
-			break;
 		case AUTOFILL_BUTTON:
 			draw_by_index(button_index, autofill_on ? ON_COLOR : AUTOFILL_BUTTON_COLOR);
+			break;
+		case TRIGGER_BUTTON:
+			draw_by_index(button_index, trigger_on ? ON_COLOR : TRIGGER_BUTTON_COLOR);
 			break;
 		case JUMP_BUTTON:
 			draw_by_index(button_index, jump_on ? ON_COLOR : JUMP_BUTTON_COLOR);
@@ -171,8 +171,8 @@ void draw_function_buttons() {
 
 	// left buttons
 //	draw_function_button(QUAKE_BUTTON);
-//	draw_function_button(FILL_BUTTON);
 //	draw_function_button(AUTOFILL_BUTTON);
+	draw_function_button(TRIGGER_BUTTON);
 	draw_function_button(JUMP_BUTTON);
 }
 
@@ -208,39 +208,17 @@ void draw_settings() {
 
 }
 
-void draw_earth2() {
-	clear_buttons();
-	Color c;
-	for (u8 row = 0; row < ROW_COUNT; row++) {
-		for (u8 column = 0; column < COLUMN_COUNT; column++) {
-			u8 index = pad_index(row, column);
-			if (index != OUT_OF_RANGE) {
-				u8 r = row < 4 ? rand() % 8 + (4 - row) * 2 : rand() % 4;
-				u8 g = rand() % 12 + row * 2;
-				u8 b = row >= 6 ? rand() % 8 + (row - 6) * 2 : 0;
-				c = (Color){r, g, b};
-				plot_by_index(index, c);
-			}
-		}
-	}
-	plot_by_index(EARTH_BUTTON, c);
-}
-
 void draw_earth() {
 	clear_buttons();
 	for (u8 column = 0; column < COLUMN_COUNT; column++) {
-//		u8 row = column == (7 - c_step %8) ? 1 : 0;
-		u8 row = 0;
-//		plot_by_index(pad_index(0, column), rand_color(3, 8, 1, 4, 0, 1));
-		plot_by_index(pad_index(row, column), rand_color(3, 8, 1, 4, 0, 1));
-		plot_by_index(pad_index(row+1, column), rand_color(3, 8, 1, 4, 0, 1));
-		plot_by_index(pad_index(row+2, column), rand_color(3, 8, 1, 4, 0, 1));
-		plot_by_index(pad_index(row+3, column), rand_color(3, 8, 1, 4, 0, 1));
-		plot_by_index(pad_index(row+4, column), rand_color(0, 4, 6, 16, 0, 2));
-		plot_by_index(pad_index(row+5, column), rand_color(0, 4, 6, 16, 0, 2));
-		plot_by_index(pad_index(row+6, column), rand_color(0, 4, 6, 16, 0, 2));
-		plot_by_index(pad_index(row+7, column), rand_color(0, 4, 6, 16, 0, 2));
+		for (u8 row = 0; row < 4; row++) {
+			plot_by_index(pad_index(row, column), rand_color(3, 8, 1, 4, 0, 1));
+		}
+		for (u8 row = 4; row < ROW_COUNT; row++) {
+			plot_by_index(pad_index(row, column), rand_color(0, 4, 6, 16, 0, 2));
+		}
 	}
+	plot_by_index(EARTH_BUTTON, rand_color(0, 4, 6, 16, 0, 2));
 
 	if (c_step % 8 == 0) {
 		earth_row = rand() % (ROW_COUNT - 2) + 1;
@@ -481,10 +459,21 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 				draw_selected_pattern(sel_pattern);
 			}
 
+	} else if (trigger_on && (row == CLOCK_ROW_1 || row == CLOCK_ROW_2)) {
+		u8 track = column + (row == CLOCK_ROW_2 ? 8 : 0);
+		if (value) {
+			midi_note(memory.settings.midi_channel, note_map[track], value);
+			draw_by_index(index, ON_COLOR);
+		} else {
+			midi_note(memory.settings.midi_channel, note_map[track], 0);
+			draw_by_index(index, BLACK);
+		}
+
 	} else if (jump_on && (row == CLOCK_ROW_1 || row == CLOCK_ROW_2)) {
 		if (value) {
 			c_step = column + (row == CLOCK_ROW_2 ? 8 : 0);
 		}
+
 	}
 }
 
@@ -551,9 +540,21 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			draw_by_index(CLEAR_BUTTON, BUTTON_OFF_COLOR);
 		}
 
+	} else if (index == TRIGGER_BUTTON) {
+		if (value) {
+			trigger_on = !trigger_on;
+			if (trigger_on) {
+				jump_on = false;
+			}
+			draw();
+		}
+
 	} else if (index == JUMP_BUTTON) {
 		if (value) {
 			jump_on = !jump_on;
+			if (jump_on) {
+				trigger_on = false;
+			}
 			draw();
 		}
 
