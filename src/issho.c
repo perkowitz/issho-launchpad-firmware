@@ -1,5 +1,6 @@
 #include "app.h"
 #include "issho.h"
+#include <stdlib.h>
 #include <stdbool.h>
 
 // vars
@@ -40,8 +41,16 @@ void colors_init() {
 	palette[DIM_PINK] = (Color){16, 7, 11};
 	palette[GRAY_GREEN] = (Color){18, 32, 22};
 	palette[DIM_GRAY_GREEN] = (Color){10, 22, 14};
-	palette[BROWN] = (Color){10, 6, 0};
-	palette[GRAY_BROWN] = (Color){8, 5, 2};
+	palette[BROWN] = (Color){6, 2, 0};
+	palette[GRAY_BROWN] = (Color){6, 4, 2};
+
+}
+
+Color rand_color(u8 r_lo, u8 r_hi, u8 g_lo, u8 g_hi, u8 b_lo, u8 b_hi) {
+	u8 r = rand() % (r_hi - r_lo) + r_lo;
+	u8 g = rand() % (g_hi - g_lo) + g_lo;
+	u8 b = rand() % (b_hi - b_lo) + b_lo;
+	return (Color){r, g, b};
 
 }
 

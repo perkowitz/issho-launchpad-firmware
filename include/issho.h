@@ -99,6 +99,7 @@ typedef struct Color {
 #define GRAY_BROWN 26
 
 void colors_init();
+Color rand_color(u8 r_lo, u8 r_hi, u8 g_lo, u8 g_hi, u8 b_lo, u8 b_hi);
 
 
 /***** standard color stuff *****/

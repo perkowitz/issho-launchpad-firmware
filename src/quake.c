@@ -1,34 +1,3 @@
-/******************************************************************************
-
- Copyright (c) 2015, Focusrite Audio Engineering Ltd.
- All rights reserved.
-
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
- list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
- this list of conditions and the following disclaimer in the documentation
- and/or other materials provided with the distribution.
-
- * Neither the name of Focusrite Audio Engineering Ltd., nor the names of its
- contributors may be used to endorse or promote products derived from
- this software without specific prior written permission.
-
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
- *****************************************************************************/
 
 #include "app.h"
 #include "issho.h"
@@ -49,6 +18,11 @@ static unsigned long app_clock = 0;
 static bool earth_on = false;
 static bool is_running = false;
 static bool in_settings = false;
+
+static u8 earth_row = 0;
+static u8 earth_column = 0;
+static u8 earth_size = 0;
+static u8 earth_color = WHITE;
 
 
 // mapping tracks to midi note numbers
@@ -89,11 +63,27 @@ u8 emask(u8 step) {
 u8 vmask(u8 step) {
 	return step %2 == 0 ? 0x70 : 0x07;
 }
+u8 vinvmask(u8 step) {
+	return step %2 == 0 ? 0x8f : 0xf8;
+}
+u8 veloshift(u8 step, u8 velocity) {
+	return step %2 == 0 ? (0x70 & velocity << 4) : (0x07 & velocity);
+}
+u8 velo2midi(u8 velocity) {
+	u8 v = velocity * 18 + 1;
+	return v > 127 ? 127 : v;
+}
 
 void get_step(u8 pattern, u8 track, u8 step, u8 *enabled, u8 *velocity) {
 	u8 index = byte_index(step);
 	*enabled = memory.patterns[pattern].tracks[track].bytes[index] & emask(step);
+	if (*enabled > 15) {
+		*enabled = *enabled >> 4;
+	}
 	*velocity = memory.patterns[pattern].tracks[track].bytes[index] & vmask(step);
+	if (*velocity > 15) {
+		*velocity = *velocity >> 4;
+	}
 }
 
 void set_step_enabled(u8 pattern, u8 track, u8 step, u8 enabled) {
@@ -103,9 +93,21 @@ void set_step_enabled(u8 pattern, u8 track, u8 step, u8 enabled) {
 	memory.patterns[pattern].tracks[track].bytes[index] = new_byte;
 }
 
+void set_velocity(u8 pattern, u8 track, u8 step, u8 velocity) {
+	u8 index = byte_index(step);
+	u8 byte = memory.patterns[pattern].tracks[track].bytes[index];
+	u8 new_byte = byte & vinvmask(step);
+	new_byte = new_byte | veloshift(step, velocity);
+	draw_binary_row(5, byte);
+	draw_binary_row(4, new_byte);
+	memory.patterns[pattern].tracks[track].bytes[index] = new_byte;
+}
+
 void toggle_step_enabled(u8 pattern, u8 track, u8 step) {
 	u8 index = byte_index(step);
+	draw_binary_row(7, memory.patterns[pattern].tracks[track].bytes[index]);
 	u8 byte = memory.patterns[pattern].tracks[track].bytes[index] ^ emask(step);;
+	draw_binary_row(6, byte);
 	memory.patterns[pattern].tracks[track].bytes[index] = byte;
 }
 
@@ -118,6 +120,7 @@ void toggle_track_enabled(u8 pattern, u8 track) {
 	u16 mask = 1 << track;
 	memory.patterns[pattern].enabled = memory.patterns[pattern].enabled ^ mask;
 }
+
 
 /***** draw *****/
 
@@ -183,7 +186,7 @@ void draw_settings() {
 
 }
 
-void draw_earth() {
+void draw_earth2() {
 	clear_buttons();
 	Color c;
 	for (u8 row = 0; row < ROW_COUNT; row++) {
@@ -199,6 +202,49 @@ void draw_earth() {
 		}
 	}
 	plot_by_index(EARTH_BUTTON, c);
+}
+
+void draw_earth() {
+	clear_buttons();
+	for (u8 column = 0; column < COLUMN_COUNT; column++) {
+//		u8 row = column == (7 - c_step %8) ? 1 : 0;
+		u8 row = 0;
+//		plot_by_index(pad_index(0, column), rand_color(3, 8, 1, 4, 0, 1));
+		plot_by_index(pad_index(row, column), rand_color(3, 8, 1, 4, 0, 1));
+		plot_by_index(pad_index(row+1, column), rand_color(3, 8, 1, 4, 0, 1));
+		plot_by_index(pad_index(row+2, column), rand_color(3, 8, 1, 4, 0, 1));
+		plot_by_index(pad_index(row+3, column), rand_color(3, 8, 1, 4, 0, 1));
+		plot_by_index(pad_index(row+4, column), rand_color(0, 4, 6, 16, 0, 2));
+		plot_by_index(pad_index(row+5, column), rand_color(0, 4, 6, 16, 0, 2));
+		plot_by_index(pad_index(row+6, column), rand_color(0, 4, 6, 16, 0, 2));
+		plot_by_index(pad_index(row+7, column), rand_color(0, 4, 6, 16, 0, 2));
+	}
+
+	if (earth_size == 0 || earth_size > 7) {
+		earth_row = rand() % ROW_COUNT;
+		earth_column = rand() % COLUMN_COUNT;
+		earth_size = 0;
+	}
+//	for (u8 offset = -1 * earth_size; offset <= earth_size; offset++) {
+//		draw_pad(earth_row + offset, earth_column - earth_size, earth_color);
+//		draw_pad(earth_row + offset, earth_column + earth_size, earth_color);
+//		draw_pad(earth_row - earth_size, earth_column + offset, earth_color);
+//		draw_pad(earth_row + earth_size, earth_column + offset, earth_color);
+//	}
+	if (c_step % 2 == 0) {
+		draw_pad(earth_row, earth_column, earth_color);
+		draw_pad(earth_row - earth_size, earth_column - earth_size, earth_color);
+		draw_pad(earth_row + earth_size, earth_column - earth_size, earth_color);
+		draw_pad(earth_row - earth_size, earth_column + earth_size, earth_color);
+		draw_pad(earth_row + earth_size, earth_column + earth_size, earth_color);
+		earth_size++;
+	}
+}
+
+void draw_velocity(u8 velocity) {
+	for (u8 offset = VELOCITY_OFFSET; offset < VELOCITY_BUTTON_COUNT; offset++) {
+		draw_button(VELOCITY_GROUP, offset, offset <= velocity / 2 ? VELOCITY_ON_COLOR : VELOCITY_OFF_COLOR);
+	}
 }
 
 void draw_step(u8 step, u8 enabled) {
@@ -219,7 +265,7 @@ void draw_track(u8 pattern, u8 track) {
 }
 
 // draws the currently selected pattern
-void draw_pattern(u8 pattern) {
+void draw_playing_pattern(u8 pattern) {
 	u16 bit = 1;
 	for (u8 track = 0; track < TRACK_COUNT; track++) {
 		// show enabled tracks
@@ -230,21 +276,35 @@ void draw_pattern(u8 pattern) {
 //		u8 c = memory.patterns[pattern].enabled & bit ? TRACK_PLAY_ON_COLOR : TRACK_PLAY_OFF_COLOR;
 		draw_pad(row, column, c);
 		bit = bit << 1;
+	}
+}
 
+// draws the currently selected pattern
+void draw_selected_pattern(u8 pattern) {
+	for (u8 track = 0; track < TRACK_COUNT; track++) {
 		// show selected track
-		row = track < 8 ? TRACK_SELECT_ROW_1 : TRACK_SELECT_ROW_2;
-		column = track % 8;
-		c = track == sel_track ? TRACK_SELECT_SELECT_COLOR : TRACK_SELECT_OFF_COLOR;
+		u8 row = track < 8 ? TRACK_SELECT_ROW_1 : TRACK_SELECT_ROW_2;
+		u8 column = track % 8;
+		u8 c = track == sel_track ? TRACK_SELECT_SELECT_COLOR : TRACK_SELECT_OFF_COLOR;
 		draw_pad(row, column, c);
 	}
 	draw_track(pattern, sel_track);
+}
+
+void draw_pattern_buttons() {
+	for (u8 pattern = 0; pattern < PATTERN_COUNT; pattern++) {
+		draw_button(PATTERN_PLAY_GROUP, pattern + PATTERN_PLAY_OFFSET,
+				pattern == c_pattern ? PATTERN_PLAY_ON_COLOR : PATTERN_PLAY_COLOR);
+		draw_button(PATTERN_SELECT_GROUP, pattern + PATTERN_SELECT_OFFSET,
+				pattern == sel_pattern ? PATTERN_SELECT_ON_COLOR : PATTERN_SELECT_COLOR);
+	}
 }
 
 void draw_clock() {
 	for (u8 step = 0; step < STEP_COUNT; step++) {
 		u8 row = step < 8 ? CLOCK_ROW_1 : CLOCK_ROW_2;
 		u8 column = step % 8;
-		u8 c = step == c_step ? SECONDARY_DIM_COLOR : BLACK;
+		u8 c = step == c_step ? ON_COLOR : BLACK;
 		draw_pad(row, column, c);
 	}
 
@@ -255,7 +315,9 @@ void draw() {
 		clear_pads();
 		clear_buttons();
 		draw_function_buttons();
-		draw_pattern(sel_pattern);
+		draw_selected_pattern(sel_pattern);
+		draw_playing_pattern(c_pattern);
+		draw_pattern_buttons();
 		draw_clock();
 	}
 }
@@ -356,7 +418,7 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 				track += 8;
 			}
 			toggle_track_enabled(c_pattern, track);
-			draw_pattern(sel_pattern);
+			draw_playing_pattern(c_pattern);
 		}
 
 	} else if (row == TRACK_SELECT_ROW_1 || row == TRACK_SELECT_ROW_2) {
@@ -365,14 +427,23 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 				if (row == TRACK_SELECT_ROW_2) {
 					sel_track += 8;
 				}
-				draw_pattern(sel_pattern);
+				draw_selected_pattern(sel_pattern);
 			}
 
 	} else if (row == STEPS_ROW_1 || row == STEPS_ROW_2) {
 			if (value) {
-				u8 step = column + (row == STEPS_ROW_2 ? 8 : 0);
-				toggle_step_enabled(sel_pattern, sel_track, step);
-				draw_pattern(sel_pattern);
+				sel_step = column + (row == STEPS_ROW_2 ? 8 : 0);
+				toggle_step_enabled(sel_pattern, sel_track, sel_step);
+				u8 enabled;
+				u8 velocity;
+				get_step(sel_pattern, sel_track, sel_step, &enabled, &velocity);
+				if (velocity == 0) {
+					velocity = 5;
+					set_velocity(sel_pattern, sel_track, sel_step, velocity);
+
+				}
+				draw_velocity(velocity);
+				draw_selected_pattern(sel_pattern);
 			}
 
 	}
@@ -441,7 +512,23 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			draw_by_index(CLEAR_BUTTON, BUTTON_OFF_COLOR);
 		}
 
+	} else if (group == VELOCITY_GROUP && offset >= VELOCITY_OFFSET && offset < VELOCITY_OFFSET + VELOCITY_BUTTON_COUNT) {
+		if (value && sel_step != OUT_OF_RANGE) {
+			u8 v = (offset - VELOCITY_OFFSET) * 2 + 1;
+			set_velocity(sel_pattern, sel_track, sel_step, v);
+			draw_velocity(v);
+		}
+
+	} else if (group == PATTERN_PLAY_GROUP && offset >= PATTERN_PLAY_OFFSET && offset < PATTERN_PLAY_OFFSET + PATTERN_COUNT) {
+		c_pattern = offset - PATTERN_PLAY_OFFSET;
+		draw();
+
+	} else if (group == PATTERN_SELECT_GROUP && offset >= PATTERN_SELECT_OFFSET && offset < PATTERN_SELECT_OFFSET + PATTERN_COUNT) {
+		sel_pattern = offset - PATTERN_SELECT_OFFSET;
+		draw();
+
 	}
+
 }
 
 
@@ -470,7 +557,8 @@ void tick() {
 		if (earth_on) {
 			draw_earth();
 		} else {
-			draw_pattern(sel_pattern);
+			draw_selected_pattern(sel_pattern);
+			draw_playing_pattern(c_pattern);
 			draw_clock();
 		}
 
@@ -485,8 +573,7 @@ void tick() {
 				u8 c = track_enabled ? TRACK_PLAY_ON_PLAY_COLOR : TRACK_PLAY_OFF_PLAY_COLOR;
 				draw_pad(row, column, c);
 				if (track_enabled) {
-					velocity = 96;
-					midi_note(memory.settings.midi_channel, note_map[track], velocity);
+					midi_note(memory.settings.midi_channel, note_map[track], velo2midi(velocity));
 				}
 			}
 		}
