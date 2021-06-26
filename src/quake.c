@@ -18,11 +18,15 @@ static unsigned long app_clock = 0;
 static bool earth_on = false;
 static bool is_running = false;
 static bool in_settings = false;
+static bool quake_on = false;
+static bool fill_on = false;
+static bool autofill_on = false;
+static bool jump_on = false;
 
 static u8 earth_row = 0;
 static u8 earth_column = 0;
 static u8 earth_size = 0;
-static u8 earth_color = WHITE;
+static u8 earth_color = RED;
 
 
 // mapping tracks to midi note numbers
@@ -98,16 +102,12 @@ void set_velocity(u8 pattern, u8 track, u8 step, u8 velocity) {
 	u8 byte = memory.patterns[pattern].tracks[track].bytes[index];
 	u8 new_byte = byte & vinvmask(step);
 	new_byte = new_byte | veloshift(step, velocity);
-	draw_binary_row(5, byte);
-	draw_binary_row(4, new_byte);
 	memory.patterns[pattern].tracks[track].bytes[index] = new_byte;
 }
 
 void toggle_step_enabled(u8 pattern, u8 track, u8 step) {
 	u8 index = byte_index(step);
-	draw_binary_row(7, memory.patterns[pattern].tracks[track].bytes[index]);
 	u8 byte = memory.patterns[pattern].tracks[track].bytes[index] ^ emask(step);;
-	draw_binary_row(6, byte);
 	memory.patterns[pattern].tracks[track].bytes[index] = byte;
 }
 
@@ -144,6 +144,19 @@ void draw_function_button(u8 button_index) {
 		case CLEAR_BUTTON:
 			draw_by_index(button_index, CLEAR_BUTTON_COLOR);
 			break;
+		case QUAKE_BUTTON:
+			draw_by_index(button_index, quake_on ? ON_COLOR : QUAKE_BUTTON_COLOR);
+			break;
+		case FILL_BUTTON:
+			draw_by_index(button_index, fill_on ? ON_COLOR : FILL_BUTTON_COLOR);
+			break;
+		case AUTOFILL_BUTTON:
+			draw_by_index(button_index, autofill_on ? ON_COLOR : AUTOFILL_BUTTON_COLOR);
+			break;
+		case JUMP_BUTTON:
+			draw_by_index(button_index, jump_on ? ON_COLOR : JUMP_BUTTON_COLOR);
+			break;
+
 	}
 }
 
@@ -155,6 +168,12 @@ void draw_function_buttons() {
 	draw_function_button(EARTH_BUTTON);
 	draw_function_button(LOAD_BUTTON);
 	draw_function_button(CLEAR_BUTTON);
+
+	// left buttons
+//	draw_function_button(QUAKE_BUTTON);
+//	draw_function_button(FILL_BUTTON);
+//	draw_function_button(AUTOFILL_BUTTON);
+	draw_function_button(JUMP_BUTTON);
 }
 
 void draw_settings() {
@@ -177,12 +196,15 @@ void draw_settings() {
 	draw_binary_row(SETTINGS_VERSION_ROW, memory.settings.version);
 
 	// auto-load button
-	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? WHITE : SETTINGS_AUTOLOAD_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_AUTO_LOAD_COLUMN, memory.settings.auto_load ? SETTINGS_ON_COLOR : SETTINGS_AUTOLOAD_COLOR);
 
 	// midi ports
-	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_USB_COLUMN, get_port(PORT_USB) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
-	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_DIN_COLUMN, get_port(PORT_DIN) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
-	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_STANDALONE_COLUMN, get_port(PORT_STANDALONE) ? WHITE : SETTINGS_MIDI_PORT_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_USB_COLUMN, get_port(PORT_USB) ? SETTINGS_ON_COLOR : SETTINGS_MIDI_PORT_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_DIN_COLUMN, get_port(PORT_DIN) ? SETTINGS_ON_COLOR : SETTINGS_MIDI_PORT_COLOR);
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_MIDI_STANDALONE_COLUMN, get_port(PORT_STANDALONE) ? SETTINGS_ON_COLOR : SETTINGS_MIDI_PORT_COLOR);
+
+	// misc
+	draw_pad(SETTINGS_MISC_ROW, SETTINGS_PATTERN_FOLLOW_COLUMN, memory.settings.pattern_follow ? SETTINGS_ON_COLOR : SETTINGS_PATTERN_FOLLOW_COLOR);
 
 }
 
@@ -220,23 +242,20 @@ void draw_earth() {
 		plot_by_index(pad_index(row+7, column), rand_color(0, 4, 6, 16, 0, 2));
 	}
 
-	if (earth_size == 0 || earth_size > 7) {
-		earth_row = rand() % ROW_COUNT;
-		earth_column = rand() % COLUMN_COUNT;
+	if (c_step % 8 == 0) {
+		earth_row = rand() % (ROW_COUNT - 2) + 1;
+		earth_column = rand() % (COLUMN_COUNT - 2) + 1;
 		earth_size = 0;
 	}
-//	for (u8 offset = -1 * earth_size; offset <= earth_size; offset++) {
-//		draw_pad(earth_row + offset, earth_column - earth_size, earth_color);
-//		draw_pad(earth_row + offset, earth_column + earth_size, earth_color);
-//		draw_pad(earth_row - earth_size, earth_column + offset, earth_color);
-//		draw_pad(earth_row + earth_size, earth_column + offset, earth_color);
-//	}
 	if (c_step % 2 == 0) {
-		draw_pad(earth_row, earth_column, earth_color);
-		draw_pad(earth_row - earth_size, earth_column - earth_size, earth_color);
-		draw_pad(earth_row + earth_size, earth_column - earth_size, earth_color);
-		draw_pad(earth_row - earth_size, earth_column + earth_size, earth_color);
-		draw_pad(earth_row + earth_size, earth_column + earth_size, earth_color);
+		for (u8 row = earth_row - earth_size; row <= earth_row + earth_size; row++) {
+			draw_pad(row, earth_column - earth_size, earth_color);
+			draw_pad(row, earth_column + earth_size, earth_color);
+		}
+		for (u8 column = earth_column - earth_size; column <= earth_column + earth_size; column++) {
+			draw_pad(earth_row - earth_size, column, earth_color);
+			draw_pad(earth_row + earth_size, column, earth_color);
+		}
 		earth_size++;
 	}
 }
@@ -348,6 +367,10 @@ void save() {
 }
 
 void load() {
+	if (read_app_id() != QUAKE_APP_ID) {
+		draw_by_index(LOAD_BUTTON, RED);
+		return;
+	}
 	clear();
 	hal_read_flash(0, (u8*)&memory, sizeof(memory));
 	set_port(PORT_DIN, memory.settings.midi_ports & 4);
@@ -357,8 +380,15 @@ void load() {
 }
 
 void load_settings() {
+	if (read_app_id() != QUAKE_APP_ID) {
+		draw_by_index(LOAD_BUTTON, RED);
+		return;
+	}
 	clear();
 	hal_read_flash(0, (u8*)&memory.settings, sizeof(memory.settings));
+	set_port(PORT_DIN, memory.settings.midi_ports & 4);
+	set_port(PORT_USB, memory.settings.midi_ports & 2);
+	set_port(PORT_STANDALONE, memory.settings.midi_ports & 1);
 	draw();
 }
 
@@ -393,6 +423,11 @@ void on_settings(u8 index, u8 row, u8 column, u8 value) {
 			all_notes_off(memory.settings.midi_channel);
 			flip_port(PORT_STANDALONE);
 			draw_settings();
+
+		} else if (row == SETTINGS_MISC_ROW && column == SETTINGS_PATTERN_FOLLOW_COLUMN) {
+			memory.settings.pattern_follow = !memory.settings.pattern_follow;
+			draw_settings();
+
 		}
 
 		// if the MIDI channel changes, make sure there are no stuck notes
@@ -446,6 +481,10 @@ void on_pad(u8 index, u8 row, u8 column, u8 value) {
 				draw_selected_pattern(sel_pattern);
 			}
 
+	} else if (jump_on && (row == CLOCK_ROW_1 || row == CLOCK_ROW_2)) {
+		if (value) {
+			c_step = column + (row == CLOCK_ROW_2 ? 8 : 0);
+		}
 	}
 }
 
@@ -512,6 +551,12 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 			draw_by_index(CLEAR_BUTTON, BUTTON_OFF_COLOR);
 		}
 
+	} else if (index == JUMP_BUTTON) {
+		if (value) {
+			jump_on = !jump_on;
+			draw();
+		}
+
 	} else if (group == VELOCITY_GROUP && offset >= VELOCITY_OFFSET && offset < VELOCITY_OFFSET + VELOCITY_BUTTON_COUNT) {
 		if (value && sel_step != OUT_OF_RANGE) {
 			u8 v = (offset - VELOCITY_OFFSET) * 2 + 1;
@@ -521,6 +566,9 @@ void on_button(u8 index, u8 group, u8 offset, u8 value) {
 
 	} else if (group == PATTERN_PLAY_GROUP && offset >= PATTERN_PLAY_OFFSET && offset < PATTERN_PLAY_OFFSET + PATTERN_COUNT) {
 		c_pattern = offset - PATTERN_PLAY_OFFSET;
+		if (memory.settings.pattern_follow != 0) {
+			sel_pattern = offset - PATTERN_SELECT_OFFSET;
+		}
 		draw();
 
 	} else if (group == PATTERN_SELECT_GROUP && offset >= PATTERN_SELECT_OFFSET && offset < PATTERN_SELECT_OFFSET + PATTERN_COUNT) {
@@ -546,6 +594,7 @@ void tick() {
 		// flash the status light in time
 		if (c_beat == 0 && c_tick == 0) {
 			status(STATUS_LIGHT);
+			c_step = 0;
 		} else if (c_tick == 0) {
 			status(STATUS_LIGHT_DIM);
 		} else {
@@ -574,6 +623,17 @@ void tick() {
 				draw_pad(row, column, c);
 				if (track_enabled) {
 					midi_note(memory.settings.midi_channel, note_map[track], velo2midi(velocity));
+					if (track == KICK_DRUM_TRACK) {
+						draw_pad(row, column, KICK_DRUM_COLOR);
+						// in earth mode, make an extra boom for the kick drum
+						if (earth_on) {
+							u8 c = rand() % 7;
+							draw_pad(0, c, KICK_DRUM_COLOR);
+							draw_pad(0, c + 1, KICK_DRUM_COLOR);
+							draw_pad(1, c, KICK_DRUM_COLOR);
+							draw_pad(1, c + 1, KICK_DRUM_COLOR);
+						}
+					}
 				}
 			}
 		}

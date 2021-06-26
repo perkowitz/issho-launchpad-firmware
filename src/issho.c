@@ -9,7 +9,11 @@ static Color palette[PSIZE];
 static u8 hw_buttons[BUTTON_COUNT] = {0};
 
 
-
+u8 read_app_id() {
+	IsshoVersion version;
+	hal_read_flash(0, (u8*)&version, sizeof(version));
+	return version.app_id;
+}
 
 void colors_init() {
 
@@ -51,7 +55,6 @@ Color rand_color(u8 r_lo, u8 r_hi, u8 g_lo, u8 g_hi, u8 b_lo, u8 b_hi) {
 	u8 g = rand() % (g_hi - g_lo) + g_lo;
 	u8 b = rand() % (b_hi - b_lo) + b_lo;
 	return (Color){r, g, b};
-
 }
 
 

@@ -49,6 +49,7 @@
 #define SETTINGS_MIDI_STANDALONE_COLUMN 3
 #define SETTINGS_AUTOLOAD_COLOR DARK_GRAY
 #define SETTINGS_MIDI_PORT_COLOR DIM_BLUE
+#define SETTINGS_ON_COLOR WHITE
 
 // top buttons
 #define PLAY_BUTTON 91
@@ -57,6 +58,16 @@
 #define LOAD_BUTTON 97
 #define CLEAR_BUTTON 98
 
+
+/***** app versions *****/
+// shared app id & version number across all apps
+// so apps can verify compatibility before loading memory
+typedef struct IsshoVersion{
+	u8 app_id;
+	u8 version;
+} IsshoVersion;
+
+u8 read_app_id();
 
 /***** colors *****/
 typedef struct Color {
